@@ -1,0 +1,5 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+# Live SAP connection — needs the SAP NetWeaver RFC SDK installed first (same as the PP tool)
+# pyrfc>=3.3
