@@ -1,0 +1,1512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InfraBeat · SD Operations Agent</title>
+<meta name="description" content="InfraBeat SD operations agent — finds, explains and fixes SAP SD issues: blocked orders, billing backlog, deliveries and PGI, outputs and IDocs, PO capture, credit blocks, accounting release, pricing.">
+<style>
+/* InfraBeat SD Operations Agent — theme aligned with the InfraBeat Procurement dashboard (SAP Fiori-like) */
+:root{
+  --bg:#f5f6f7; --card:#ffffff; --line:#e3e6ea; --line2:#eef0f3;
+  --ink:#1d2d3e; --ink2:#32363a; --mute:#6a6d70; --mute2:#8d9096;
+  --blue:#0a6ed1; --blue2:#0854a0; --blue-bg:#e8f1fb;
+  --navy:#0d2a4d; --navy2:#12386b; --navy-ink:#dbe6f5;
+  --red:#bb0000; --red2:#d0021b; --red-bg:#fdecec;
+  --amber:#e9730c; --amber-bg:#fff3e6;
+  --green:#107e3e; --green-bg:#e9f5ee;
+  --purple:#6c3fb5; --purple-bg:#efe9fa;
+  --chip:#eef0f3; --chip-ink:#32363a;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 2px 8px rgba(29,45,62,.06);
+  --radius:10px;
+  --font:"72","72full","Segoe UI",Inter,-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+}
+[data-theme="dark"]{
+  --bg:#12171d; --card:#1b2129; --line:#2a323c; --line2:#242b34;
+  --ink:#eef2f6; --ink2:#dde3ea; --mute:#9aa4b1; --mute2:#7d8793;
+  --blue:#4db1ff; --blue2:#79c4ff; --blue-bg:#15283a;
+  --navy:#0b1e36; --navy2:#102c52; --navy-ink:#c8d6ea;
+  --red:#ff6b6b; --red2:#ff8080; --red-bg:#3a1b1b;
+  --amber:#ffa54d; --amber-bg:#3a2a16;
+  --green:#5dd28a; --green-bg:#163626;
+  --purple:#b79cf0; --purple-bg:#2a2140;
+  --chip:#262e38; --chip-ink:#dde3ea;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13.5px;line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:8px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-bg)}
+h1,h2,h3,h4{margin:0;font-weight:700;color:var(--ink)}
+.hidden{display:none!important}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.mute{color:var(--mute)}.small{font-size:12px}.tiny{font-size:11px}
+.red{color:var(--red)}.amber{color:var(--amber)}.green{color:var(--green)}.blue{color:var(--blue)}
+.b{font-weight:700}.sb{font-weight:600}
+.row{display:flex;align-items:center;gap:10px}.row.wrap{flex-wrap:wrap}.grow{flex:1}.right{margin-left:auto}
+.stack{display:flex;flex-direction:column;gap:6px}
+
+/* ---------- shell ---------- */
+.top{height:56px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:14px;position:sticky;top:0;z-index:30}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .mark{font-weight:800;font-size:20px;letter-spacing:-.3px;color:var(--navy);padding-right:12px;border-right:2px solid var(--line)}
+[data-theme="dark"] .logo .mark{color:#fff}
+.logo .mark span{color:var(--red2)}
+.logo .co{font-weight:700;font-size:13.5px;line-height:1.15}
+.logo .sub{font-size:11.5px;color:var(--mute)}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:600;font-size:12.5px;white-space:nowrap}
+.pill:hover{border-color:var(--blue)}
+.pill.ask{background:var(--red);border-color:var(--red);color:#fff}
+.pill.ask:hover{background:var(--red2)}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--blue-bg);color:var(--blue2);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.tabs{background:var(--card);border-bottom:1px solid var(--line);padding:0 18px;display:flex;gap:4px;overflow-x:auto;position:sticky;top:56px;z-index:29;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;color:var(--mute);padding:11px 8px;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:7px;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab .ic{width:14px;height:14px;opacity:.85}
+.badge{background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700;min-width:18px;text-align:center}
+.badge.r{background:var(--red-bg);color:var(--red)}
+.badge.a{background:var(--amber-bg);color:var(--amber)}
+.main{padding:18px;max-width:1500px;margin:0 auto}
+
+/* ---------- hero ---------- */
+.hero{background:linear-gradient(120deg,var(--navy) 0%,var(--navy2) 100%);color:#fff;border-radius:14px;padding:22px 26px;display:grid;grid-template-columns:1fr 230px;gap:18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;right:-120px;top:-140px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),transparent 60%)}
+.hero .stamp{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600}
+.hero .stamp i{width:7px;height:7px;border-radius:50%;background:#4dd6a8;display:inline-block}
+.hero h1{color:#fff;font-size:22px;margin:12px 0 6px;letter-spacing:-.2px}
+.hero p{margin:0;color:var(--navy-ink);max-width:760px}
+.hero .top3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.hero .top3 button{text-align:left;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.hero .top3 button:hover{background:rgba(255,255,255,.14)}
+.hero .top3 .n{width:20px;height:20px;border-radius:50%;background:var(--red2);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.hero .top3 .n.a{background:var(--amber)}.hero .top3 .n.b{background:var(--blue)}
+.hero .top3 .t{font-weight:700;font-size:12.5px}.hero .top3 .d{font-size:11.5px;color:var(--navy-ink)}
+.hero .ring{display:flex;align-items:center;gap:14px;align-self:center}
+.hero .ring svg{width:92px;height:92px}
+.hero .ring .k{font-size:22px;font-weight:800;line-height:1}
+.hero .ring .l{font-size:12px;color:var(--navy-ink);margin-top:4px}
+.hero .ring a{color:#9cc8ff;font-weight:600;font-size:12px}
+
+/* ---------- tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:12px;margin-top:14px}
+@media (max-width:1280px){.tiles{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px 10px;min-height:128px;position:relative;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s}
+.tile:hover{border-color:var(--blue)}
+.tile .ic{width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:6px}
+.tile .ic svg{width:14px;height:14px}
+.tile .ic.r{background:var(--red-bg);color:var(--red)}.tile .ic.a{background:var(--amber-bg);color:var(--amber)}.tile .ic.b{background:var(--blue-bg);color:var(--blue)}.tile .ic.g{background:var(--green-bg);color:var(--green)}.tile .ic.p{background:var(--purple-bg);color:var(--purple)}
+.tile .lbl{font-size:12px;color:var(--mute)}
+.tile .num{font-size:26px;font-weight:800;line-height:1.1;margin:2px 0}
+.tile .s1{font-size:12px;color:var(--ink2)}.tile .s2{font-size:11.5px;font-weight:600;max-width:62%;line-height:1.3}
+.tile .spark{position:absolute;right:0;bottom:0;width:42%;height:30px;opacity:.9}
+
+/* ---------- cards / tables ---------- */
+.grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card .hd{padding:13px 16px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:10px}
+.card .hd h3{font-size:14px}.card .hd .sub{font-size:12px;color:var(--mute)}
+.card .hd .ic{width:28px;height:28px;border-radius:7px;background:var(--amber-bg);color:var(--amber);display:inline-flex;align-items:center;justify-content:center}
+.card .hd .ic svg{width:14px;height:14px}
+.card .bd{padding:14px 16px}
+table.t{width:100%;border-collapse:collapse}
+table.t th{font-size:11.5px;color:var(--mute);font-weight:600;text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);background:var(--bg);white-space:nowrap}
+[data-theme="dark"] table.t th{background:#161c23}
+table.t td{padding:10px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+table.t tr:last-child td{border-bottom:0}
+table.t tr.click{cursor:pointer}table.t tr.click:hover td{background:var(--blue-bg)}
+table.t .k{font-weight:700;color:var(--ink)}table.t .k2{font-size:11.5px;color:var(--mute);margin-top:2px}
+table.t td.r{text-align:right}table.t th.r{text-align:right}
+.chip{display:inline-block;border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:600;background:var(--chip);color:var(--chip-ink);white-space:nowrap}
+.chip.r{background:var(--red-bg);color:var(--red)}.chip.a{background:var(--amber-bg);color:var(--amber)}.chip.g{background:var(--green-bg);color:var(--green)}.chip.b{background:var(--blue-bg);color:var(--blue2)}.chip.p{background:var(--purple-bg);color:var(--purple)}
+[data-theme="dark"] .chip.b{color:var(--blue)}
+.tag{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;background:var(--red);color:#fff}
+.tag.a{background:var(--amber)}.tag.g{background:var(--green)}.tag.b{background:var(--blue)}
+.bar{height:6px;background:var(--line2);border-radius:999px;overflow:hidden;margin:6px 0 4px}
+.bar i{display:block;height:100%;background:var(--red);border-radius:999px}
+.bar i.a{background:var(--amber)}.bar i.g{background:var(--green)}.bar i.b{background:var(--blue)}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line2);align-items:flex-start}
+.list li:last-child{border-bottom:0}
+.list .n{width:22px;height:22px;border-radius:50%;background:var(--red-bg);color:var(--red);font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-top:2px}
+.list .n.a{background:var(--amber-bg);color:var(--amber)}.list .n.b{background:var(--blue-bg);color:var(--blue)}
+.list .t{font-weight:700}.list .d{font-size:12px;color:var(--mute)}
+
+/* ---------- buttons ---------- */
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:7px;padding:7px 12px;font-weight:600;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn.p{background:var(--blue);border-color:var(--blue);color:#fff}.btn.p:hover{background:var(--blue2);border-color:var(--blue2);color:#fff}
+.btn.d{background:var(--red);border-color:var(--red);color:#fff}.btn.d:hover{background:var(--red2)}
+.btn.g{background:var(--green);border-color:var(--green);color:#fff}
+.btn.s{padding:4px 9px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.link{border:0;background:none;color:var(--blue);padding:0}
+
+/* ---------- page header / toolbar ---------- */
+.ph{display:flex;align-items:flex-end;gap:14px;margin:4px 0 14px}
+.ph h2{font-size:19px}.ph .sub{color:var(--mute);font-size:12.5px;margin-top:2px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:0 10px;min-width:300px}
+.search input{border:0;background:none;padding:8px 0;flex:1}
+.search input:focus{box-shadow:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:none;padding:6px 11px;font-weight:600;color:var(--mute);font-size:12.5px}
+.seg button.on{background:var(--blue-bg);color:var(--blue2)}
+.note{border-left:3px solid var(--blue);background:var(--blue-bg);padding:9px 12px;border-radius:0 8px 8px 0;font-size:12.5px;margin:10px 0}
+.note.r{border-color:var(--red);background:var(--red-bg)}.note.a{border-color:var(--amber);background:var(--amber-bg)}.note.g{border-color:var(--green);background:var(--green-bg)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:5px 12px;font-size:12.5px}
+.kv dt{color:var(--mute)}.kv dd{margin:0;font-weight:600}
+.empty{padding:34px 16px;text-align:center;color:var(--mute)}
+.empty b{display:block;color:var(--ink);font-size:14px;margin-bottom:4px}
+
+/* ---------- drawer / modal / toast ---------- */
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(620px,96vw);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.12);z-index:60;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s ease}
+.drawer.open{transform:none}
+.drawer .dh{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.drawer .dh h3{font-size:15px}
+.drawer .db{padding:16px 18px;overflow:auto;flex:1}
+.drawer .df{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.scrim{position:fixed;inset:0;background:rgba(13,27,45,.35);z-index:55;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:rgba(13,27,45,.45)}
+.modal.on{display:flex}
+.modal .box{background:var(--card);border-radius:12px;width:min(560px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal .mh{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:15px}
+.modal .mb{padding:16px 18px}.modal .mf{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:var(--ink);color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:pop .2s ease}
+[data-theme="dark"] .toast{background:#eef2f6;color:#12171d}
+.toast.err{background:var(--red)}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- flow / evidence ---------- */
+.flow{display:flex;align-items:stretch;gap:0;margin:8px 0 14px;overflow:auto}
+.flow .st{flex:1;min-width:0;border:1px solid var(--line);border-left:0;padding:8px 8px;position:relative;background:var(--card)}
+.flow .st:first-child{border-left:1px solid var(--line);border-radius:8px 0 0 8px}.flow .st:last-child{border-radius:0 8px 8px 0}
+.flow .st .l{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flow .st .v{font-weight:700;font-size:12px;margin-top:2px;word-break:break-word}
+.flow .st .m{font-size:11px;color:var(--mute)}
+.flow .st.ok{border-top:3px solid var(--green)}.flow .st.warn{border-top:3px solid var(--amber)}.flow .st.bad{border-top:3px solid var(--red)}.flow .st.todo{border-top:3px solid var(--line)}
+.ev{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;background:var(--bg)}
+[data-theme="dark"] .ev{background:#161c23}
+.ev .h{font-weight:700;font-size:12.5px;margin-bottom:4px;display:flex;gap:8px;align-items:center}
+.ev pre{margin:0;white-space:pre-wrap;font-size:12px;color:var(--ink2)}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{padding:6px 0 6px 18px;position:relative;font-size:12.5px;border-left:2px solid var(--line2)}
+.timeline li:before{content:"";position:absolute;left:-5px;top:11px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.timeline li .w{color:var(--mute);font-size:11.5px}
+
+/* ---------- chat ---------- */
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{max-width:92%;padding:10px 13px;border-radius:12px;font-size:13px;white-space:pre-wrap}
+.msg.u{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:3px}
+.msg.a{align-self:flex-start;background:var(--bg);border:1px solid var(--line);border-bottom-left-radius:3px}
+[data-theme="dark"] .msg.a{background:#161c23}
+.sugg{display:flex;flex-wrap:wrap;gap:6px}
+.sugg button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--blue2)}
+.sugg button:hover{border-color:var(--blue)}
+
+/* ---------- login ---------- */
+.login{min-height:100vh;display:grid;place-items:center;background:linear-gradient(120deg,var(--navy),var(--navy2))}
+.login .box{background:var(--card);border-radius:14px;padding:28px 30px;width:min(420px,92vw);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.login h1{font-size:20px;margin:6px 0 2px}
+.users{display:grid;gap:8px;margin-top:14px}
+.users button{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--card);border-radius:9px;padding:9px 12px;text-align:left}
+.users button:hover{border-color:var(--blue);background:var(--blue-bg)}
+.users .nm{font-weight:700}.users .rl{font-size:12px;color:var(--mute)}
+
+.footer{padding:18px;color:var(--mute2);font-size:11.5px;text-align:center}
+@media (max-width:1000px){.hero{grid-template-columns:1fr}.grid2,.grid3{grid-template-columns:1fr}.hero .top3{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+
+/* icon sizing inside controls */
+.btn svg,.pill svg,.search>svg,.dh h3 svg{width:14px;height:14px;flex:none}
+.search>svg{color:var(--mute)}
+.hero .ring svg text{font-family:var(--font)}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="scrim" class="scrim" onclick="closeDrawer()"></div>
+<aside id="drawer" class="drawer"></aside>
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"></div>
+<div id="toasts" class="toasts"></div>
+<script>
+/* ---------- small helpers ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const n = (v) => Number(v || 0).toLocaleString('en-IN');
+const inr = (v) => { v = Number(v || 0); const a = Math.abs(v); if (a >= 1e7) return '₹' + (v / 1e7).toFixed(2) + ' cr'; if (a >= 1e5) return '₹' + (v / 1e5).toFixed(1) + ' L'; return '₹' + v.toLocaleString('en-IN'); };
+const inrFull = (v) => '₹' + Number(v || 0).toLocaleString('en-IN');
+const dmy = (d) => { if (!d) return '—'; const [y, m, dd] = d.split('-'); return `${dd} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m - 1]}`; };
+const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+const ageDays = (d) => daysBetween(d, TODAY);
+const addDays = (d, k) => { const x = new Date(d); x.setDate(x.getDate() + k); return x.toISOString().slice(0, 10); };
+const hoursAgo = (iso) => { const h = Math.max(0, Math.round((Date.now() - new Date(iso)) / 36e5)); return h < 1 ? 'just now' : h < 48 ? h + ' h' : Math.round(h / 24) + ' d'; };
+const uid = () => Math.random().toString(36).slice(2, 9);
+const sumBy = (arr, f) => arr.reduce((s, x) => s + (f(x) || 0), 0);
+const by = (k) => (a, b) => (a[k] > b[k] ? 1 : a[k] < b[k] ? -1 : 0);
+/* deterministic sparkline values from a seed string */
+function sparkVals(seed, len = 14) { let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0; const out = []; let v = 40 + (h % 30); for (let i = 0; i < len; i++) { h = (h * 1103515245 + 12345) >>> 0; v = Math.max(5, Math.min(95, v + ((h >> 8) % 21) - 9)); out.push(v); } return out; }
+function sparkSVG(seed, color) { const vals = sparkVals(seed); const w = 120, h = 34; const pts = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(h - 4 - v / 100 * (h - 8)).toFixed(1)}`); return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><defs><linearGradient id="g${seed}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".25"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="M0,${h} L${pts.join(' L')} L${w},${h} Z" fill="url(#g${seed})"/><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.6"/></svg>`; }
+/* icons (inline SVG, stroke-based) */
+const ICONS = {
+  grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  bill: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+  truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12 20 4l-4 16-5-6z"/><path d="m11 14 9-10"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 14h5l1.5 2h3L15 14h5"/></svg>',
+  card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
+  ledger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 4v16M4 9h16M4 14h16"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14c3 0 5.5 2 5.5 5"/></svg>',
+  db: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/></svg>',
+  spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>',
+};
+const ic = (k) => `<span class="ic">${ICONS[k] || ''}</span>`;
+
+
+/* =====================================================================
+   MOCK SAP TABLES  (field names follow the real SD tables so that the
+   RFC backend can return the same shapes from RFC_READ_TABLE / Z-RFCs)
+   Snapshot date: 2026-11-12. All customers, documents and values are
+   synthetic. Replace with the RFC adapter in sap.js for a live system.
+   ===================================================================== */
+const TODAY = '2026-11-12';
+
+const SAP_TABLES = {
+  /* ---- organisation ---- */
+  TVKO: [ // sales organisations
+    { VKORG:'1000', VTEXT:'West (Mumbai)' }, { VKORG:'2000', VTEXT:'South (Bengaluru)' }, { VKORG:'3000', VTEXT:'North (Delhi NCR)' },
+  ],
+  T001W: [ { WERKS:'1100', NAME1:'Pune' }, { WERKS:'1200', NAME1:'Ahmedabad' }, { WERKS:'2100', NAME1:'Bengaluru' }, { WERKS:'3100', NAME1:'NCR' } ],
+  TVLST: [ // delivery block reasons
+    { LIFSP:'01', VTEXT:'Credit limit' }, { LIFSP:'02', VTEXT:'Political reasons' }, { LIFSP:'03', VTEXT:'Bottleneck material' },
+    { LIFSP:'04', VTEXT:'Export papers missing' }, { LIFSP:'Z1', VTEXT:'Customer confirmation pending' }, { LIFSP:'Z2', VTEXT:'Commercial review' },
+  ],
+  TVFST: [ { FAKSP:'01', VTEXT:'Calculation missing' }, { FAKSP:'02', VTEXT:'Compl. confirm missing' }, { FAKSP:'08', VTEXT:'Check credit memo' }, { FAKSP:'Z1', VTEXT:'Pending price approval' } ],
+
+  /* ---- master data ---- */
+  KNA1: [
+    { KUNNR:'1000010', NAME1:'Aster Retail Distribution', ORT01:'Mumbai',    SMTP_ADDR:'orders@aster-retail.example', STCD3:'27AAACA1234A1Z5', GSTIN_OK:true },
+    { KUNNR:'1000011', NAME1:'Meridian Wholesale',        ORT01:'Pune',      SMTP_ADDR:'',                            STCD3:'27AABCM5678B1Z2', GSTIN_OK:true },
+    { KUNNR:'1000012', NAME1:'BluePeak Stores',           ORT01:'Nagpur',    SMTP_ADDR:'ap@bluepeak.example',         STCD3:'27AADCB9012C1Z9', GSTIN_OK:true },
+    { KUNNR:'2000010', NAME1:'Northstar Homecare',        ORT01:'Bengaluru', SMTP_ADDR:'po@northstar.example',        STCD3:'29AAECN3456D1Z1', GSTIN_OK:true },
+    { KUNNR:'2000011', NAME1:'Solara Consumer Goods',     ORT01:'Chennai',   SMTP_ADDR:'buy@solara.example',          STCD3:'33AAFCS7890E1Z0', GSTIN_OK:false },
+    { KUNNR:'3000010', NAME1:'Oakline Trading',           ORT01:'Delhi',     SMTP_ADDR:'scm@oakline.example',         STCD3:'07AAGCO2345F1Z8', GSTIN_OK:true },
+    { KUNNR:'3000011', NAME1:'Orion Modern Trade',        ORT01:'Jaipur',    SMTP_ADDR:'orders@orion-mt.example',     STCD3:'08AAHCO6789G1Z6', GSTIN_OK:true },
+  ],
+  KNVV: [ // sales area data (one row per customer here; KDGRP = customer group, VSBED shipping cond)
+    { KUNNR:'1000010', VKORG:'1000', VTWEG:'10', SPART:'00', KDGRP:'01', ZTERM:'NT30', VSBED:'01', INCO1:'FOR', KALKS:'1' },
+    { KUNNR:'1000011', VKORG:'1000', VTWEG:'10', SPART:'00', KDGRP:'02', ZTERM:'NT45', VSBED:'01', INCO1:'EXW', KALKS:'1' },
+    { KUNNR:'1000012', VKORG:'1000', VTWEG:'10', SPART:'00', KDGRP:'02', ZTERM:'NT30', VSBED:'02', INCO1:'FOR', KALKS:'1' },
+    { KUNNR:'2000010', VKORG:'2000', VTWEG:'10', SPART:'00', KDGRP:'01', ZTERM:'NT30', VSBED:'01', INCO1:'',    KALKS:'1' },
+    { KUNNR:'2000011', VKORG:'2000', VTWEG:'10', SPART:'00', KDGRP:'03', ZTERM:'NT60', VSBED:'01', INCO1:'FOR', KALKS:'1' },
+    { KUNNR:'3000010', VKORG:'3000', VTWEG:'10', SPART:'00', KDGRP:'01', ZTERM:'NT30', VSBED:'01', INCO1:'FOR', KALKS:'1' },
+    { KUNNR:'3000011', VKORG:'3000', VTWEG:'10', SPART:'00', KDGRP:'02', ZTERM:'NT30', VSBED:'02', INCO1:'FOR', KALKS:'1' },
+  ],
+  KNKK: [ // credit master (FSCM simplified): limit, exposure, overdue, days past due, last payment
+    { KUNNR:'1000010', KKBER:'1000', KLIMK:4000000, SKFOR:2600000, OVERDUE:180000,  DPD:9,  LASTPAY:'2026-11-05', PAYHIST:'Pays within 5 days of due on average' },
+    { KUNNR:'1000011', KKBER:'1000', KLIMK:1500000, SKFOR:900000,  OVERDUE:0,       DPD:0,  LASTPAY:'2026-11-08', PAYHIST:'Always on time' },
+    { KUNNR:'1000012', KKBER:'1000', KLIMK:2500000, SKFOR:2650000, OVERDUE:180000,  DPD:12, LASTPAY:'2026-10-30', PAYHIST:'Occasional 10-15 day delays; no write-offs' },
+    { KUNNR:'2000010', KKBER:'1000', KLIMK:3000000, SKFOR:1400000, OVERDUE:0,       DPD:0,  LASTPAY:'2026-11-10', PAYHIST:'Always on time' },
+    { KUNNR:'2000011', KKBER:'1000', KLIMK:4000000, SKFOR:4900000, OVERDUE:1250000, DPD:41, LASTPAY:'2026-09-28', PAYHIST:'Deteriorating — 3 invoices > 30 days' },
+    { KUNNR:'3000010', KKBER:'1000', KLIMK:2000000, SKFOR:1100000, OVERDUE:0,       DPD:0,  LASTPAY:'2026-11-09', PAYHIST:'Always on time' },
+    { KUNNR:'3000011', KKBER:'1000', KLIMK:1800000, SKFOR:1300000, OVERDUE:60000,   DPD:4,  LASTPAY:'2026-11-06', PAYHIST:'Minor delays' },
+  ],
+  MAKT: [
+    { MATNR:'FG-100101', MAKTX:'Surface care concentrate 5 L', MEINS:'EA', MTPOS:'NORM', KTGRM:'01' },
+    { MATNR:'FG-100102', MAKTX:'Laundry liquid 2 L',          MEINS:'EA', MTPOS:'NORM', KTGRM:'01' },
+    { MATNR:'FG-100103', MAKTX:'Dish wash gel 1 L',           MEINS:'EA', MTPOS:'NORM', KTGRM:'01' },
+    { MATNR:'FG-100104', MAKTX:'Floor cleaner 5 L',           MEINS:'EA', MTPOS:'NORM', KTGRM:'04' }, // acct assignment grp 04 -> VKOA gap
+  ],
+  KNMT: [ // customer-material info records
+    { KUNNR:'1000010', VKORG:'1000', VTWEG:'10', KDMAT:'SC-5L',  MATNR:'FG-100101', UMREZ:10 },
+    { KUNNR:'1000010', VKORG:'1000', VTWEG:'10', KDMAT:'LL-2L',  MATNR:'FG-100102', UMREZ:10 },
+    { KUNNR:'1000011', VKORG:'1000', VTWEG:'10', KDMAT:'MW-SURF5', MATNR:'FG-100101', UMREZ:12 },
+    { KUNNR:'2000010', VKORG:'2000', VTWEG:'10', KDMAT:'NS-DW1', MATNR:'FG-100103', UMREZ:24 },
+    { KUNNR:'2000010', VKORG:'2000', VTWEG:'10', KDMAT:'NS-FC5', MATNR:'FG-100104', UMREZ:6 },
+  ],
+  MARD: [ // unrestricted stock by plant / storage location
+    { MATNR:'FG-100101', WERKS:'1100', LGORT:'0001', LABST:9000 }, { MATNR:'FG-100102', WERKS:'1100', LGORT:'0001', LABST:4200 },
+    { MATNR:'FG-100103', WERKS:'1100', LGORT:'0001', LABST:12000 }, { MATNR:'FG-100104', WERKS:'1100', LGORT:'0001', LABST:800 },
+    { MATNR:'FG-100101', WERKS:'1200', LGORT:'0001', LABST:6000 }, { MATNR:'FG-100102', WERKS:'1200', LGORT:'0001', LABST:0 },
+    { MATNR:'FG-100101', WERKS:'2100', LGORT:'0001', LABST:9000 }, { MATNR:'FG-100103', WERKS:'2100', LGORT:'0001', LABST:3000 }, { MATNR:'FG-100104', WERKS:'2100', LGORT:'0001', LABST:2500 },
+    { MATNR:'FG-100101', WERKS:'3100', LGORT:'0001', LABST:9000 }, { MATNR:'FG-100102', WERKS:'3100', LGORT:'0001', LABST:1500 }, { MATNR:'FG-100104', WERKS:'3100', LGORT:'0001', LABST:400 },
+  ],
+  MCHB: [ // batch stock
+    { MATNR:'FG-100101', WERKS:'1100', LGORT:'0001', CHARG:'B2611-01', CLABS:5000, VFDAT:'2027-05-31' },
+    { MATNR:'FG-100101', WERKS:'1100', LGORT:'0001', CHARG:'B2610-07', CLABS:4000, VFDAT:'2027-04-30' },
+    { MATNR:'FG-100102', WERKS:'1100', LGORT:'0001', CHARG:'B2611-03', CLABS:4200, VFDAT:'2027-06-30' },
+  ],
+  A305: [ // customer/material price condition records (PR00)
+    { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', KUNNR:'1000010', MATNR:'FG-100101', DATAB:'2026-01-01', DATBI:'2026-12-31', KBETR:420 },
+    { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', KUNNR:'1000010', MATNR:'FG-100102', DATAB:'2026-01-01', DATBI:'2026-12-31', KBETR:262 },
+    { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', KUNNR:'1000011', MATNR:'FG-100101', DATAB:'2026-01-01', DATBI:'2026-12-31', KBETR:432 },
+    { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', KUNNR:'1000011', MATNR:'FG-100102', DATAB:'2026-01-01', DATBI:'2026-10-31', KBETR:268 }, // EXPIRED -> pricing error on 50001299
+    { KSCHL:'PR00', VKORG:'2000', VTWEG:'10', KUNNR:'2000010', MATNR:'FG-100103', DATAB:'2026-01-01', DATBI:'2026-12-31', KBETR:112 },
+    { KSCHL:'PR00', VKORG:'2000', VTWEG:'10', KUNNR:'2000010', MATNR:'FG-100104', DATAB:'2026-01-01', DATBI:'2026-12-31', KBETR:365 },
+  ],
+  A304: [ // material price (fallback)
+    { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', MATNR:'FG-100101', KBETR:460 }, { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', MATNR:'FG-100102', KBETR:285 },
+    { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', MATNR:'FG-100103', KBETR:120 }, { KSCHL:'PR00', VKORG:'1000', VTWEG:'10', MATNR:'FG-100104', KBETR:390 },
+    { KSCHL:'PR00', VKORG:'2000', VTWEG:'10', MATNR:'FG-100101', KBETR:460 }, { KSCHL:'PR00', VKORG:'2000', VTWEG:'10', MATNR:'FG-100102', KBETR:285 },
+    { KSCHL:'PR00', VKORG:'2000', VTWEG:'10', MATNR:'FG-100103', KBETR:120 }, { KSCHL:'PR00', VKORG:'2000', VTWEG:'10', MATNR:'FG-100104', KBETR:390 },
+    { KSCHL:'PR00', VKORG:'3000', VTWEG:'10', MATNR:'FG-100101', KBETR:460 }, { KSCHL:'PR00', VKORG:'3000', VTWEG:'10', MATNR:'FG-100102', KBETR:285 },
+    { KSCHL:'PR00', VKORG:'3000', VTWEG:'10', MATNR:'FG-100103', KBETR:120 }, { KSCHL:'PR00', VKORG:'3000', VTWEG:'10', MATNR:'FG-100104', KBETR:390 },
+  ],
+  /* customising that the consultant tasks touch */
+  VKOA: [ // account determination: KTGRM (material acct grp) x KVGR (account key) -> SAKNR
+    { KTOPL:'INT', KTGRM:'01', KVSL1:'ERL', SAKNR:'400000' }, { KTOPL:'INT', KTGRM:'01', KVSL1:'ERS', SAKNR:'400010' }, { KTOPL:'INT', KTGRM:'01', KVSL1:'MWS', SAKNR:'175000' },
+    // KTGRM 04 / ERL deliberately missing -> accounting error for FG-100104 invoices
+  ],
+  WE20: [ // partner profiles (EDI)
+    { PARNUM:'1000010', PARTYP:'KU', MESTYP:'INVOIC' }, { PARNUM:'1000010', PARTYP:'KU', MESTYP:'ORDRSP' }, { PARNUM:'3000011', PARTYP:'KU', MESTYP:'INVOIC' },
+    // 2000010 Northstar INVOIC profile missing -> IDoc status 51
+  ],
+  PRINTERS: [ { PDEST:'LP01', STATUS:'OFFLINE' }, { PDEST:'LP02', STATUS:'READY' } ],
+
+  /* ---- sales documents ---- */
+  VBAK: [
+    //  VBELN, AUART, VKORG, KUNNR, BSTNK, ERDAT, VDATU(req.dlv), NETWR, LIFSK(dlv block), FAKSK(bill block), CMGST(credit status: ''=ok, B=blocked, D=released), GBSTK(overall), KNUMV
+    { VBELN:'50001284', AUART:'OR', VKORG:'1000', KUNNR:'1000010', BSTNK:'PO-10482',  ERDAT:'2026-11-03', VDATU:'2026-11-14', NETWR:4760000, LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1284' },
+    { VBELN:'50001285', AUART:'OR', VKORG:'1000', KUNNR:'1000011', BSTNK:'MW-7731',   ERDAT:'2026-11-06', VDATU:'2026-11-13', NETWR:1296000, LIFSK:'Z1', FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1285' },
+    { VBELN:'50001286', AUART:'OR', VKORG:'1000', KUNNR:'1000012', BSTNK:'BP-2026-311', ERDAT:'2026-11-08', VDATU:'2026-11-15', NETWR:920000,  LIFSK:'',   FAKSK:'',   CMGST:'B', GBSTK:'A', KNUMV:'K1286' },
+    { VBELN:'50001287', AUART:'OR', VKORG:'2000', KUNNR:'2000010', BSTNK:'NS-PO-5540', ERDAT:'2026-11-09', VDATU:'2026-11-16', NETWR:538000,  LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1287' },
+    { VBELN:'50001288', AUART:'OR', VKORG:'2000', KUNNR:'2000011', BSTNK:'SOL-88121',  ERDAT:'2026-11-10', VDATU:'2026-11-17', NETWR:1840000, LIFSK:'',   FAKSK:'',   CMGST:'B', GBSTK:'A', KNUMV:'K1288' },
+    { VBELN:'50001289', AUART:'OR', VKORG:'3000', KUNNR:'3000010', BSTNK:'OAK-4471',   ERDAT:'2026-10-28', VDATU:'2026-11-04', NETWR:1380000, LIFSK:'',   FAKSK:'Z1', CMGST:'',  GBSTK:'B', KNUMV:'K1289' },
+    { VBELN:'50001290', AUART:'OR', VKORG:'3000', KUNNR:'3000011', BSTNK:'ORN-1902',   ERDAT:'2026-10-30', VDATU:'2026-11-05', NETWR:1104000, LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'B', KNUMV:'K1290' },
+    { VBELN:'50001291', AUART:'OR', VKORG:'1000', KUNNR:'1000010', BSTNK:'PO-10466',   ERDAT:'2026-10-24', VDATU:'2026-10-31', NETWR:1095000, LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'C', KNUMV:'K1291' },
+    { VBELN:'50001292', AUART:'OR', VKORG:'1000', KUNNR:'1000011', BSTNK:'MW-7702',    ERDAT:'2026-10-26', VDATU:'2026-11-02', NETWR:864000,  LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'C', KNUMV:'K1292' },
+    { VBELN:'50001293', AUART:'OR', VKORG:'2000', KUNNR:'2000010', BSTNK:'NS-PO-5512', ERDAT:'2026-10-27', VDATU:'2026-11-03', NETWR:672000,  LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'C', KNUMV:'K1293' },
+    { VBELN:'50001294', AUART:'OR', VKORG:'2000', KUNNR:'2000011', BSTNK:'SOL-88090',  ERDAT:'2026-10-29', VDATU:'2026-11-05', NETWR:1150000, LIFSK:'',   FAKSK:'',   CMGST:'D', GBSTK:'C', KNUMV:'K1294' },
+    { VBELN:'50001295', AUART:'OR', VKORG:'3000', KUNNR:'3000010', BSTNK:'OAK-4480',   ERDAT:'2026-11-07', VDATU:'2026-11-12', NETWR:690000,  LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1295' },
+    { VBELN:'50001296', AUART:'OR', VKORG:'3000', KUNNR:'3000011', BSTNK:'ORN-1911',   ERDAT:'2026-11-07', VDATU:'2026-11-12', NETWR:1170000, LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1296' },
+    { VBELN:'50001297', AUART:'OR', VKORG:'1000', KUNNR:'1000012', BSTNK:'BP-2026-298', ERDAT:'2026-11-04', VDATU:'2026-11-11', NETWR:1050000, LIFSK:'',   FAKSK:'',   CMGST:'D', GBSTK:'B', KNUMV:'K1297' },
+    { VBELN:'50001298', AUART:'OR', VKORG:'1000', KUNNR:'1000010', BSTNK:'PO-10490',   ERDAT:'2026-11-05', VDATU:'2026-11-12', NETWR:1572000, LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'B', KNUMV:'K1298' },
+    { VBELN:'50001299', AUART:'OR', VKORG:'1000', KUNNR:'1000011', BSTNK:'MW-7740',    ERDAT:'2026-11-10', VDATU:'2026-11-18', NETWR:0,       LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1299' },
+    { VBELN:'50001300', AUART:'OR', VKORG:'2000', KUNNR:'2000010', BSTNK:'NS-PO-5551', ERDAT:'2026-11-11', VDATU:'2026-11-19', NETWR:504000,  LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'A', KNUMV:'K1300' },
+    { VBELN:'50001301', AUART:'OR', VKORG:'2000', KUNNR:'2000011', BSTNK:'SOL-88140',  ERDAT:'2026-11-11', VDATU:'2026-11-20', NETWR:690000,  LIFSK:'',   FAKSK:'',   CMGST:'D', GBSTK:'A', KNUMV:'K1301' },
+    { VBELN:'50001302', AUART:'OR', VKORG:'3000', KUNNR:'3000010', BSTNK:'OAK-4455',   ERDAT:'2026-10-20', VDATU:'2026-10-27', NETWR:1380000, LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'C', KNUMV:'K1302' },
+    { VBELN:'50001303', AUART:'OR', VKORG:'3000', KUNNR:'3000011', BSTNK:'ORN-1890',   ERDAT:'2026-10-22', VDATU:'2026-10-29', NETWR:780000,  LIFSK:'',   FAKSK:'',   CMGST:'',  GBSTK:'C', KNUMV:'K1303' },
+  ],
+  VBAP: [
+    { VBELN:'50001284', POSNR:'000010', MATNR:'FG-100101', KWMENG:10000, NETPR:420, NETWR:4200000, WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001284', POSNR:'000020', MATNR:'FG-100102', KWMENG:2000,  NETPR:262, NETWR:524000,  WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001285', POSNR:'000010', MATNR:'FG-100101', KWMENG:3000,  NETPR:432, NETWR:1296000, WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001286', POSNR:'000010', MATNR:'FG-100101', KWMENG:2000,  NETPR:460, NETWR:920000,  WERKS:'1200', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001287', POSNR:'000010', MATNR:'FG-100103', KWMENG:3000,  NETPR:112, NETWR:336000,  WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001287', POSNR:'000020', MATNR:'FG-100104', KWMENG:600,   NETPR:365, NETWR:219000,  WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001288', POSNR:'000010', MATNR:'FG-100101', KWMENG:4000,  NETPR:460, NETWR:1840000, WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001289', POSNR:'000010', MATNR:'FG-100101', KWMENG:3000,  NETPR:460, NETWR:1380000, WERKS:'3100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001290', POSNR:'000010', MATNR:'FG-100101', KWMENG:2400,  NETPR:460, NETWR:1104000, WERKS:'3100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001291', POSNR:'000010', MATNR:'FG-100104', KWMENG:1500,  NETPR:390, NETWR:585000,  WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001291', POSNR:'000020', MATNR:'FG-100101', KWMENG:1200,  NETPR:420, NETWR:504000,  WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001292', POSNR:'000010', MATNR:'FG-100101', KWMENG:2000,  NETPR:432, NETWR:864000,  WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001293', POSNR:'000010', MATNR:'FG-100103', KWMENG:6000,  NETPR:112, NETWR:672000,  WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001294', POSNR:'000010', MATNR:'FG-100101', KWMENG:2500,  NETPR:460, NETWR:1150000, WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001295', POSNR:'000010', MATNR:'FG-100101', KWMENG:1500,  NETPR:460, NETWR:690000,  WERKS:'3100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001296', POSNR:'000010', MATNR:'FG-100102', KWMENG:3000,  NETPR:285, NETWR:855000,  WERKS:'3100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001296', POSNR:'000020', MATNR:'FG-100104', KWMENG:800,   NETPR:390, NETWR:312000,  WERKS:'3100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001297', POSNR:'000010', MATNR:'FG-100101', KWMENG:2300,  NETPR:460, NETWR:1058000, WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001298', POSNR:'000010', MATNR:'FG-100101', KWMENG:3000,  NETPR:420, NETWR:1260000, WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001298', POSNR:'000020', MATNR:'FG-100102', KWMENG:1200,  NETPR:262, NETWR:314400,  WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001299', POSNR:'000010', MATNR:'FG-100102', KWMENG:2500,  NETPR:0,   NETWR:0,       WERKS:'1100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001300', POSNR:'000010', MATNR:'FG-100103', KWMENG:6000,  NETPR:84,  NETWR:504000,  WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001301', POSNR:'000010', MATNR:'FG-100101', KWMENG:1500,  NETPR:460, NETWR:690000,  WERKS:'2100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001302', POSNR:'000010', MATNR:'FG-100101', KWMENG:3000,  NETPR:460, NETWR:1380000, WERKS:'3100', LGORT:'0001', ABGRU:'' },
+    { VBELN:'50001303', POSNR:'000010', MATNR:'FG-100104', KWMENG:2000,  NETPR:390, NETWR:780000,  WERKS:'3100', LGORT:'0001', ABGRU:'' },
+  ],
+  VBEP: [ // schedule lines: WMENG ordered, BMENG confirmed, EDATU date
+    { VBELN:'50001284', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-14', WMENG:10000, BMENG:6000 },
+    { VBELN:'50001284', POSNR:'000020', ETENR:'0001', EDATU:'2026-11-14', WMENG:2000,  BMENG:2000 },
+    { VBELN:'50001285', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-13', WMENG:3000,  BMENG:3000 },
+    { VBELN:'50001286', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-15', WMENG:2000,  BMENG:2000 },
+    { VBELN:'50001287', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-16', WMENG:3000,  BMENG:3000 },
+    { VBELN:'50001287', POSNR:'000020', ETENR:'0001', EDATU:'2026-11-16', WMENG:600,   BMENG:600 },
+    { VBELN:'50001288', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-17', WMENG:4000,  BMENG:4000 },
+    { VBELN:'50001289', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-04', WMENG:3000,  BMENG:3000 },
+    { VBELN:'50001290', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-05', WMENG:2400,  BMENG:2400 },
+    { VBELN:'50001291', POSNR:'000010', ETENR:'0001', EDATU:'2026-10-31', WMENG:1500,  BMENG:1500 },
+    { VBELN:'50001291', POSNR:'000020', ETENR:'0001', EDATU:'2026-10-31', WMENG:1200,  BMENG:1200 },
+    { VBELN:'50001292', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-02', WMENG:2000,  BMENG:2000 },
+    { VBELN:'50001293', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-03', WMENG:6000,  BMENG:6000 },
+    { VBELN:'50001294', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-05', WMENG:2500,  BMENG:2500 },
+    { VBELN:'50001295', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-12', WMENG:1500,  BMENG:1500 },
+    { VBELN:'50001296', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-12', WMENG:3000,  BMENG:1500 },
+    { VBELN:'50001296', POSNR:'000020', ETENR:'0001', EDATU:'2026-11-12', WMENG:800,   BMENG:400 },
+    { VBELN:'50001297', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-11', WMENG:2300,  BMENG:2300 },
+    { VBELN:'50001298', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-12', WMENG:3000,  BMENG:3000 },
+    { VBELN:'50001298', POSNR:'000020', ETENR:'0001', EDATU:'2026-11-12', WMENG:1200,  BMENG:1200 },
+    { VBELN:'50001299', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-18', WMENG:2500,  BMENG:2500 },
+    { VBELN:'50001300', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-19', WMENG:6000,  BMENG:6000 },
+    { VBELN:'50001301', POSNR:'000010', ETENR:'0001', EDATU:'2026-11-20', WMENG:1500,  BMENG:1500 },
+    { VBELN:'50001302', POSNR:'000010', ETENR:'0001', EDATU:'2026-10-27', WMENG:3000,  BMENG:3000 },
+    { VBELN:'50001303', POSNR:'000010', ETENR:'0001', EDATU:'2026-10-29', WMENG:2000,  BMENG:2000 },
+  ],
+  VBUV: [ // incompletion log
+    { VBELN:'50001287', POSNR:'000000', TBNAM:'VBKD', FDNAM:'INCO1', FDTXT:'Incoterms (header)' },
+    { VBELN:'50001287', POSNR:'000000', TBNAM:'VBPA', FDNAM:'KUNNR-WE', FDTXT:'Ship-to party' },
+  ],
+  PRCD_ELEMENTS: [ // pricing conditions (KONV) — only rows the diagnostics need
+    { KNUMV:'K1299', KPOSN:'000010', STUNR:'010', KSCHL:'PR00', KBETR:0,   KWERT:0,       KINAK:'',  KMPRS:'', STATUS:'No condition record found (A305/A304 access failed)' },
+    { KNUMV:'K1300', KPOSN:'000010', STUNR:'010', KSCHL:'PR00', KBETR:112, KWERT:672000,  KINAK:'',  KMPRS:'', STATUS:'OK' },
+    { KNUMV:'K1300', KPOSN:'000010', STUNR:'100', KSCHL:'K007', KBETR:-25, KWERT:-168000, KINAK:'',  KMPRS:'X', STATUS:'Manual' },
+    { KNUMV:'K1284', KPOSN:'000010', STUNR:'010', KSCHL:'PR00', KBETR:420, KWERT:4200000, KINAK:'',  KMPRS:'', STATUS:'OK' },
+    { KNUMV:'K1284', KPOSN:'000010', STUNR:'100', KSCHL:'K007', KBETR:-8,  KWERT:-336000, KINAK:'',  KMPRS:'', STATUS:'OK' },
+  ],
+  PRICE_HISTORY: [ // last 10 orders' effective discount per customer/material (for variance check)
+    { KUNNR:'2000010', MATNR:'FG-100103', AVG_K007:-8, MIN_K007:-5, MAX_K007:-12, N:10 },
+  ],
+
+  /* ---- deliveries ---- */
+  LIKP: [ // WBSTK: '' not started, 'A' not yet, 'B' partially, 'C' goods issued. KOSTK picking status.
+    { VBELN:'80001289', LFART:'LF', VSTEL:'3100', KUNNR:'3000010', LFDAT:'2026-11-04', WADAT_IST:'2026-11-04', WBSTK:'C', KOSTK:'C', ERDAT:'2026-11-03', PGI_ERR:'' },
+    { VBELN:'80001290', LFART:'LF', VSTEL:'3100', KUNNR:'3000011', LFDAT:'2026-11-05', WADAT_IST:'2026-11-05', WBSTK:'C', KOSTK:'C', ERDAT:'2026-11-04', PGI_ERR:'' },
+    { VBELN:'80001291', LFART:'LF', VSTEL:'1100', KUNNR:'1000010', LFDAT:'2026-10-31', WADAT_IST:'2026-10-31', WBSTK:'C', KOSTK:'C', ERDAT:'2026-10-30', PGI_ERR:'' },
+    { VBELN:'80001292', LFART:'LF', VSTEL:'1100', KUNNR:'1000011', LFDAT:'2026-11-02', WADAT_IST:'2026-11-02', WBSTK:'C', KOSTK:'C', ERDAT:'2026-11-01', PGI_ERR:'' },
+    { VBELN:'80001293', LFART:'LF', VSTEL:'2100', KUNNR:'2000010', LFDAT:'2026-11-03', WADAT_IST:'2026-11-03', WBSTK:'C', KOSTK:'C', ERDAT:'2026-11-02', PGI_ERR:'' },
+    { VBELN:'80001294', LFART:'LF', VSTEL:'2100', KUNNR:'2000011', LFDAT:'2026-11-05', WADAT_IST:'2026-11-05', WBSTK:'C', KOSTK:'C', ERDAT:'2026-11-04', PGI_ERR:'' },
+    { VBELN:'80001297', LFART:'LF', VSTEL:'1100', KUNNR:'1000012', LFDAT:'2026-11-11', WADAT_IST:'',           WBSTK:'A', KOSTK:'C', ERDAT:'2026-11-10', PGI_ERR:'VL 609: Batch determination failed — no batch assigned to item 000010 (strategy ZSD1 found no batch with >= 2,300 EA)' },
+    { VBELN:'80001298', LFART:'LF', VSTEL:'1100', KUNNR:'1000010', LFDAT:'2026-11-12', WADAT_IST:'',           WBSTK:'A', KOSTK:'C', ERDAT:'2026-11-11', PGI_ERR:'' },
+    { VBELN:'80001302', LFART:'LF', VSTEL:'3100', KUNNR:'3000010', LFDAT:'2026-10-27', WADAT_IST:'2026-10-27', WBSTK:'C', KOSTK:'C', ERDAT:'2026-10-26', PGI_ERR:'' },
+    { VBELN:'80001303', LFART:'LF', VSTEL:'3100', KUNNR:'3000011', LFDAT:'2026-10-29', WADAT_IST:'2026-10-29', WBSTK:'C', KOSTK:'C', ERDAT:'2026-10-28', PGI_ERR:'' },
+  ],
+  LIPS: [
+    { VBELN:'80001289', POSNR:'000010', VGBEL:'50001289', VGPOS:'000010', MATNR:'FG-100101', LFIMG:3000, WERKS:'3100', LGORT:'0001', CHARG:'B2610-05' },
+    { VBELN:'80001290', POSNR:'000010', VGBEL:'50001290', VGPOS:'000010', MATNR:'FG-100101', LFIMG:2400, WERKS:'3100', LGORT:'0001', CHARG:'B2610-05' },
+    { VBELN:'80001291', POSNR:'000010', VGBEL:'50001291', VGPOS:'000010', MATNR:'FG-100104', LFIMG:1500, WERKS:'1100', LGORT:'0001', CHARG:'B2610-11' },
+    { VBELN:'80001291', POSNR:'000020', VGBEL:'50001291', VGPOS:'000020', MATNR:'FG-100101', LFIMG:1200, WERKS:'1100', LGORT:'0001', CHARG:'B2610-07' },
+    { VBELN:'80001292', POSNR:'000010', VGBEL:'50001292', VGPOS:'000010', MATNR:'FG-100101', LFIMG:2000, WERKS:'1100', LGORT:'0001', CHARG:'B2610-07' },
+    { VBELN:'80001293', POSNR:'000010', VGBEL:'50001293', VGPOS:'000010', MATNR:'FG-100103', LFIMG:6000, WERKS:'2100', LGORT:'0001', CHARG:'B2610-21' },
+    { VBELN:'80001294', POSNR:'000010', VGBEL:'50001294', VGPOS:'000010', MATNR:'FG-100101', LFIMG:2500, WERKS:'2100', LGORT:'0001', CHARG:'B2610-22' },
+    { VBELN:'80001297', POSNR:'000010', VGBEL:'50001297', VGPOS:'000010', MATNR:'FG-100101', LFIMG:2300, WERKS:'1100', LGORT:'0001', CHARG:'' },
+    { VBELN:'80001298', POSNR:'000010', VGBEL:'50001298', VGPOS:'000010', MATNR:'FG-100101', LFIMG:3000, WERKS:'1100', LGORT:'0001', CHARG:'B2611-01' },
+    { VBELN:'80001298', POSNR:'000020', VGBEL:'50001298', VGPOS:'000020', MATNR:'FG-100102', LFIMG:1200, WERKS:'1100', LGORT:'0001', CHARG:'B2611-03' },
+    { VBELN:'80001302', POSNR:'000010', VGBEL:'50001302', VGPOS:'000010', MATNR:'FG-100101', LFIMG:3000, WERKS:'3100', LGORT:'0001', CHARG:'B2610-02' },
+    { VBELN:'80001303', POSNR:'000010', VGBEL:'50001303', VGPOS:'000010', MATNR:'FG-100104', LFIMG:2000, WERKS:'3100', LGORT:'0001', CHARG:'B2610-03' },
+  ],
+
+  /* ---- billing ---- */
+  VBRK: [ // RFBSK: 'C' posted to FI, 'E' posting error, '' not yet; FKSTO cancelled; BELNR accounting doc
+    { VBELN:'90001291', FKART:'F2', FKDAT:'2026-10-31', KUNRG:'1000010', VKORG:'1000', NETWR:1095000, MWSBK:197100, RFBSK:'E', FKSTO:'', BELNR:'', ACC_ERR:'KI 235: Account 400000 requires an assignment to a CO object — account determination (VKOA) for account key ERL / material account assignment group 04 returned no G/L account; posting fell back to default' },
+    { VBELN:'90001292', FKART:'F2', FKDAT:'2026-11-02', KUNRG:'1000011', VKORG:'1000', NETWR:864000,  MWSBK:155520, RFBSK:'C', FKSTO:'', BELNR:'1400022871', ACC_ERR:'' },
+    { VBELN:'90001293', FKART:'F2', FKDAT:'2026-11-03', KUNRG:'2000010', VKORG:'2000', NETWR:672000,  MWSBK:120960, RFBSK:'C', FKSTO:'', BELNR:'1400022880', ACC_ERR:'' },
+    { VBELN:'90001294', FKART:'F2', FKDAT:'2026-11-05', KUNRG:'2000011', VKORG:'2000', NETWR:1150000, MWSBK:207000, RFBSK:'C', FKSTO:'', BELNR:'1400022894', ACC_ERR:'' },
+    { VBELN:'90001302', FKART:'F2', FKDAT:'2026-10-27', KUNRG:'3000010', VKORG:'3000', NETWR:1380000, MWSBK:248400, RFBSK:'C', FKSTO:'', BELNR:'1400022810', ACC_ERR:'' },
+    { VBELN:'90001303', FKART:'F2', FKDAT:'2026-10-29', KUNRG:'3000011', VKORG:'3000', NETWR:780000,  MWSBK:140400, RFBSK:'E', FKSTO:'', BELNR:'', ACC_ERR:'FF 753: Tax code O1 does not exist in tax procedure TAXINN for country IN — condition JOIG determined tax code O1 from customer tax classification' },
+  ],
+  VBRP: [
+    { VBELN:'90001291', POSNR:'000010', VGBEL:'80001291', VGPOS:'000010', AUBEL:'50001291', AUPOS:'000010', MATNR:'FG-100104', FKIMG:1500, NETWR:585000 },
+    { VBELN:'90001291', POSNR:'000020', VGBEL:'80001291', VGPOS:'000020', AUBEL:'50001291', AUPOS:'000020', MATNR:'FG-100101', FKIMG:1200, NETWR:504000 },
+    { VBELN:'90001292', POSNR:'000010', VGBEL:'80001292', VGPOS:'000010', AUBEL:'50001292', AUPOS:'000010', MATNR:'FG-100101', FKIMG:2000, NETWR:864000 },
+    { VBELN:'90001293', POSNR:'000010', VGBEL:'80001293', VGPOS:'000010', AUBEL:'50001293', AUPOS:'000010', MATNR:'FG-100103', FKIMG:6000, NETWR:672000 },
+    { VBELN:'90001294', POSNR:'000010', VGBEL:'80001294', VGPOS:'000010', AUBEL:'50001294', AUPOS:'000010', MATNR:'FG-100101', FKIMG:2500, NETWR:1150000 },
+    { VBELN:'90001302', POSNR:'000010', VGBEL:'80001302', VGPOS:'000010', AUBEL:'50001302', AUPOS:'000010', MATNR:'FG-100101', FKIMG:3000, NETWR:1380000 },
+    { VBELN:'90001303', POSNR:'000010', VGBEL:'80001303', VGPOS:'000010', AUBEL:'50001303', AUPOS:'000010', MATNR:'FG-100104', FKIMG:2000, NETWR:780000 },
+  ],
+  BKPF: [ // accounting docs for SD-FI reconciliation
+    { BELNR:'1400022871', AWKEY:'90001292', WRBTR:1019520, BUDAT:'2026-11-02' },
+    { BELNR:'1400022880', AWKEY:'90001293', WRBTR:795960,  BUDAT:'2026-11-03' }, // ₹3,000 off vs VBRK -> SD-FI mismatch
+    { BELNR:'1400022894', AWKEY:'90001294', WRBTR:1357000, BUDAT:'2026-11-05' },
+    { BELNR:'1400022810', AWKEY:'90001302', WRBTR:1628400, BUDAT:'2026-10-27' },
+  ],
+
+  /* ---- output & EDI ---- */
+  NAST: [ // VSTAT: 0 not processed, 1 processed, 2 error
+    { KAPPL:'V3', OBJKY:'90001292', KSCHL:'RD00', NACHA:'5', VSTAT:'2', ERDAT:'2026-11-02', PDEST:'',     ERRTXT:'Output RD00 (invoice e-mail): no e-mail address maintained for partner 1000011 (KNA1-SMTP_ADDR empty)' },
+    { KAPPL:'V1', OBJKY:'50001301', KSCHL:'BA00', NACHA:'1', VSTAT:'2', ERDAT:'2026-11-11', PDEST:'LP01', ERRTXT:'Output BA00 (order confirmation): spool request failed — output device LP01 not available' },
+    { KAPPL:'V3', OBJKY:'90001294', KSCHL:'RD00', NACHA:'5', VSTAT:'1', ERDAT:'2026-11-05', PDEST:'',     ERRTXT:'' },
+    { KAPPL:'V3', OBJKY:'90001302', KSCHL:'RD00', NACHA:'5', VSTAT:'1', ERDAT:'2026-10-27', PDEST:'',     ERRTXT:'' },
+  ],
+  EDIDC: [ // outbound IDocs; STATUS 03 sent, 51 application error (inbound), 30 ready, 29 error in ALE
+    { DOCNUM:'0000000481223', MESTYP:'INVOIC', IDOCTP:'INVOIC02', DIRECT:'1', RCVPRN:'2000010', STATUS:'29', CREDAT:'2026-11-03', OBJKY:'90001293', STATXT:'E0 331: Partner profile not available — receiver partner 2000010 / partner type KU / message type INVOIC not maintained in WE20' },
+    { DOCNUM:'0000000481260', MESTYP:'INVOIC', IDOCTP:'INVOIC02', DIRECT:'1', RCVPRN:'1000010', STATUS:'03', CREDAT:'2026-10-31', OBJKY:'90001291', STATXT:'' },
+  ],
+  EINV: [ // India e-invoice (IRN) status per invoice
+    { VBELN:'90001294', IRN_STATUS:'REJECTED', ERRCODE:'3028', ERRTXT:'GSTIN of the recipient is cancelled or inactive (33AAFCS7890E1Z0)', SUBMITTED:'2026-11-05' },
+    { VBELN:'90001292', IRN_STATUS:'GENERATED', ERRCODE:'', ERRTXT:'', SUBMITTED:'2026-11-02' },
+    { VBELN:'90001293', IRN_STATUS:'GENERATED', ERRCODE:'', ERRTXT:'', SUBMITTED:'2026-11-03' },
+    { VBELN:'90001302', IRN_STATUS:'GENERATED', ERRCODE:'', ERRTXT:'', SUBMITTED:'2026-10-27' },
+  ],
+
+  /* ---- PO inbox (extracted from customer e-mail / PDF; in production: DOX / EDI ORDERS) ---- */
+  ZSD_PO_INBOX: [
+    { ID:'PO-IN-0071', KUNNR:'1000010', VKORG:'1000', BSTNK:'PO-10501', RECEIVED:'2026-11-12 08:14', SOURCE:'E-mail PDF', REQ_DATE:'2026-11-20', STATUS:'New', CONFIDENCE:0.97,
+      LINES:[ { KDMAT:'SC-5L', CASES:500, UOM:'CS', PRICE_ON_PO:4200 }, { KDMAT:'LL-2L', CASES:120, UOM:'CS', PRICE_ON_PO:2620 } ] },
+    { ID:'PO-IN-0072', KUNNR:'1000011', VKORG:'1000', BSTNK:'MW-7751', RECEIVED:'2026-11-12 09:02', SOURCE:'E-mail PDF', REQ_DATE:'2026-11-19', STATUS:'New', CONFIDENCE:0.91,
+      LINES:[ { KDMAT:'MW-SURF5', CASES:200, UOM:'CS', PRICE_ON_PO:5184 }, { KDMAT:'MW-DISH1', CASES:80, UOM:'CS', PRICE_ON_PO:2880 } ] },
+    { ID:'PO-IN-0073', KUNNR:'2000010', VKORG:'2000', BSTNK:'NS-PO-5540', RECEIVED:'2026-11-12 09:40', SOURCE:'Customer portal export', REQ_DATE:'2026-11-18', STATUS:'New', CONFIDENCE:0.99,
+      LINES:[ { KDMAT:'NS-DW1', CASES:125, UOM:'CS', PRICE_ON_PO:2688 } ] },
+  ],
+};
+
+/* =====================================================================
+   APP USERS & TEAM (not SAP tables — the tool's own identity + routing)
+   ===================================================================== */
+const USERS = [
+  { id:'priya',  name:'Priya Sharma',   role:'sdlead',   title:'SD Lead',               vkorg:['1000','2000','3000'] },
+  { id:'rohan',  name:'Rohan Kulkarni', role:'cs',       title:'Customer Service',      vkorg:['1000','2000','3000'] },
+  { id:'meera',  name:'Meera Joshi',    role:'finance',  title:'Finance Controller',    vkorg:['1000','2000','3000'] },
+  { id:'sameer', name:'Sameer Patil',   role:'consultant', title:'SD Consultant',       vkorg:['1000','2000','3000'] },
+];
+const ROLES = {
+  sdlead:     { title:'SD Lead',            propose:['*'], approve:['block','billing_block','pricing','delivery','order'], execute:['*'], assign:true },
+  cs:         { title:'Customer Service',   propose:['*'], approve:[], execute:['order','billing','delivery','output','po','tracker'], assign:false },
+  finance:    { title:'Finance Controller', propose:['credit','accounting'], approve:['credit','accounting'], execute:['credit','accounting'], assign:false },
+  consultant: { title:'SD Consultant',      propose:['*'], approve:[], execute:['config','output','delivery','pricing','accounting'], assign:false },
+};
+const CONSULTANTS = [
+  { id:'sameer', name:'Sameer Patil',   skills:['order','billing','pricing','accounting'], capacity:8 },
+  { id:'anita',  name:'Anita Deshmukh', skills:['delivery','credit','order','stock'],      capacity:8 },
+  { id:'kiran',  name:'Kiran Rao',      skills:['output','idoc','einvoice','config'],      capacity:8 },
+];
+/* pre-existing consultant load (tasks from other tickets) */
+const BASE_LOAD = { sameer:4, anita:2, kiran:5 };
+
+/* minutes a consultant/user would have spent doing this manually in SAP */
+const MINUTES_SAVED = { tracker:6, blocked:12, billing:8, billing_block:10, delivery:10, pgi:12, output:7, idoc:15, einvoice:12, po:25, credit:15, accounting:20, pricing:20, incomplete:8 };
+
+
+/* =====================================================================
+   SAP ADAPTER
+   - mode 'mock' : works on the embedded tables (this file) — demo / offline
+   - mode 'rfc'  : POSTs to the Python backend (backend/server.py) which
+                   calls RFC_READ_TABLE / BAPIs through pyrfc, exactly like
+                   the PP tool. The UI code never knows the difference.
+   Every write goes through a named function module; nothing writes to a
+   table directly (SD documents must be changed through BAPIs/FMs).
+   ===================================================================== */
+const SAP = {
+  mode: 'mock',                 // 'mock' | 'rfc'
+  endpoint: '/api/sap',         // backend route in rfc mode
+  log: [],                      // call log shown in Data & connections
+
+  /* ---- reads ---- */
+  async read(table, where = {}, opts = {}) {
+    const t0 = performance.now();
+    let rows;
+    if (this.mode === 'rfc') {
+      rows = await this._post({ op: 'read', table, where, opts });
+    } else {
+      rows = (DB[table] || []).filter(r => Object.entries(where).every(([k, v]) => Array.isArray(v) ? v.includes(r[k]) : r[k] === v));
+      rows = rows.map(r => ({ ...r }));
+    }
+    this._log('READ', table, where, rows.length, performance.now() - t0);
+    return rows;
+  },
+  async one(table, where) { return (await this.read(table, where))[0] || null; },
+
+  /* ---- writes: function module calls ---- */
+  async call(fm, params = {}) {
+    const t0 = performance.now();
+    let res;
+    if (this.mode === 'rfc') {
+      res = await this._post({ op: 'call', fm, params });
+    } else {
+      const impl = MOCK_FM[fm];
+      if (!impl) throw new Error(`Function module ${fm} is not implemented in mock mode`);
+      res = impl(params);
+      if (res.RETURN && res.RETURN.TYPE === 'E') { this._log('CALL', fm, params, 'ERROR: ' + res.RETURN.MESSAGE, performance.now() - t0); throw new Error(res.RETURN.MESSAGE); }
+      MOCK_FM.BAPI_TRANSACTION_COMMIT();
+    }
+    this._log('CALL', fm, params, res.RETURN ? res.RETURN.MESSAGE : 'OK', performance.now() - t0);
+    return res;
+  },
+
+  async _post(body) {
+    const r = await fetch(this.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`SAP backend ${r.status}: ${await r.text()}`);
+    return r.json();
+  },
+  _log(kind, name, params, result, ms) {
+    this.log.unshift({ at: new Date().toISOString(), kind, name, params: JSON.stringify(params).slice(0, 160), result: String(result).slice(0, 160), ms: Math.round(ms) });
+    if (this.log.length > 300) this.log.length = 300;
+  },
+};
+
+/* ---------------------------------------------------------------------
+   MOCK FUNCTION MODULES — same names and parameter shapes the backend
+   will use with pyrfc, so swapping to RFC changes no UI code.
+   --------------------------------------------------------------------- */
+const ok = (msg) => ({ RETURN: { TYPE: 'S', MESSAGE: msg } });
+const err = (msg) => ({ RETURN: { TYPE: 'E', MESSAGE: msg } });
+const nextNo = (table, field, start) => { const max = DB[table].reduce((m, r) => Math.max(m, parseInt(r[field], 10) || 0), start); return String(max + 1); };
+
+const MOCK_FM = {
+  BAPI_TRANSACTION_COMMIT() { persistDB(); return ok('Committed'); },
+
+  /* ---- sales order ---- */
+  BAPI_SALESORDER_CHANGE({ SALESDOCUMENT, ORDER_HEADER_IN = {}, ORDER_HEADER_INX = {}, LOGIC_SWITCH = {}, INCOMPLETE_FIELDS = [] }) {
+    const o = DB.VBAK.find(r => r.VBELN === SALESDOCUMENT);
+    if (!o) return err(`Sales document ${SALESDOCUMENT} does not exist`);
+    if (ORDER_HEADER_INX.DLV_BLOCK) o.LIFSK = ORDER_HEADER_IN.DLV_BLOCK || '';
+    if (ORDER_HEADER_INX.BILL_BLOCK) o.FAKSK = ORDER_HEADER_IN.BILL_BLOCK || '';
+    if (ORDER_HEADER_INX.INCOTERMS1) { const kv = DB.KNVV.find(r => r.KUNNR === o.KUNNR); if (kv) kv.INCO1 = ORDER_HEADER_IN.INCOTERMS1; }
+    INCOMPLETE_FIELDS.forEach(f => { DB.VBUV = DB.VBUV.filter(r => !(r.VBELN === SALESDOCUMENT && r.FDNAM === f)); });
+    if (LOGIC_SWITCH.PRICING === 'B') { // carry out new pricing
+      DB.VBAP.filter(i => i.VBELN === SALESDOCUMENT).forEach(i => {
+        const rec = DB.A305.find(a => a.KUNNR === o.KUNNR && a.MATNR === i.MATNR && a.VKORG === o.VKORG && a.DATAB <= TODAY && a.DATBI >= TODAY) || DB.A304.find(a => a.MATNR === i.MATNR && a.VKORG === o.VKORG);
+        if (rec) { i.NETPR = rec.KBETR; i.NETWR = rec.KBETR * i.KWMENG; }
+        const pe = DB.PRCD_ELEMENTS.find(p => p.KNUMV === o.KNUMV && p.KPOSN === i.POSNR && p.KSCHL === 'PR00'); if (pe && rec) { pe.KBETR = rec.KBETR; pe.KWERT = i.NETWR; pe.STATUS = 'OK'; }
+      });
+      o.NETWR = DB.VBAP.filter(i => i.VBELN === SALESDOCUMENT).reduce((s, i) => s + i.NETWR, 0);
+    }
+    return ok(`Sales document ${SALESDOCUMENT} has been saved`);
+  },
+  BAPI_SALESORDER_CREATEFROMDAT2({ ORDER_HEADER_IN, ORDER_ITEMS_IN = [], ORDER_PARTNERS = [] }) {
+    const dup = DB.VBAK.find(r => r.KUNNR === ORDER_HEADER_IN.KUNNR && r.BSTNK === ORDER_HEADER_IN.PURCH_NO_C);
+    if (dup) return err(`V1 190: Purchase order ${ORDER_HEADER_IN.PURCH_NO_C} already exists in sales document ${dup.VBELN}`);
+    const vbeln = nextNo('VBAK', 'VBELN', 50001303);
+    const knumv = 'K' + vbeln.slice(-4);
+    let netwr = 0;
+    ORDER_ITEMS_IN.forEach((it, idx) => {
+      const posnr = String((idx + 1) * 10).padStart(6, '0');
+      const rec = DB.A305.find(a => a.KUNNR === ORDER_HEADER_IN.KUNNR && a.MATNR === it.MATERIAL && a.DATAB <= TODAY && a.DATBI >= TODAY) || DB.A304.find(a => a.MATNR === it.MATERIAL && a.VKORG === ORDER_HEADER_IN.SALES_ORG);
+      const price = rec ? rec.KBETR : 0; const val = price * it.TARGET_QTY; netwr += val;
+      DB.VBAP.push({ VBELN: vbeln, POSNR: posnr, MATNR: it.MATERIAL, KWMENG: it.TARGET_QTY, NETPR: price, NETWR: val, WERKS: it.PLANT, LGORT: '0001', ABGRU: '' });
+      const st = DB.MARD.find(m => m.MATNR === it.MATERIAL && m.WERKS === it.PLANT); const conf = Math.min(it.TARGET_QTY, st ? st.LABST : 0);
+      DB.VBEP.push({ VBELN: vbeln, POSNR: posnr, ETENR: '0001', EDATU: ORDER_HEADER_IN.REQ_DATE_H, WMENG: it.TARGET_QTY, BMENG: conf });
+      DB.PRCD_ELEMENTS.push({ KNUMV: knumv, KPOSN: posnr, STUNR: '010', KSCHL: 'PR00', KBETR: price, KWERT: val, KINAK: '', KMPRS: '', STATUS: rec ? 'OK' : 'No condition record found' });
+    });
+    DB.VBAK.push({ VBELN: vbeln, AUART: ORDER_HEADER_IN.DOC_TYPE || 'OR', VKORG: ORDER_HEADER_IN.SALES_ORG, KUNNR: ORDER_HEADER_IN.KUNNR, BSTNK: ORDER_HEADER_IN.PURCH_NO_C, ERDAT: TODAY, VDATU: ORDER_HEADER_IN.REQ_DATE_H, NETWR: netwr, LIFSK: '', FAKSK: '', CMGST: '', GBSTK: 'A', KNUMV: knumv });
+    return { ...ok(`Standard Order ${vbeln} has been saved`), SALESDOCUMENT: vbeln };
+  },
+  SD_ORDER_CREDIT_RELEASE({ VBELN }) { // VKM1 release
+    const o = DB.VBAK.find(r => r.VBELN === VBELN); if (!o) return err('Document not found');
+    o.CMGST = 'D'; return ok(`Credit release for ${VBELN} carried out (status D)`);
+  },
+
+  /* ---- delivery ---- */
+  BAPI_OUTB_DELIVERY_CREATE_SLS({ SALES_ORDER_ITEMS = [], SHIP_POINT, DUE_DATE }) {
+    const vbeln = nextNo('LIKP', 'VBELN', 80001303);
+    const first = DB.VBAK.find(r => r.VBELN === SALES_ORDER_ITEMS[0].REF_DOC);
+    const lines = []; let posnr = 10;
+    for (const it of SALES_ORDER_ITEMS) {
+      const ep = DB.VBEP.find(e => e.VBELN === it.REF_DOC && e.POSNR === it.REF_ITEM); const ap = DB.VBAP.find(a => a.VBELN === it.REF_DOC && a.POSNR === it.REF_ITEM);
+      const qty = Math.min(it.DLV_QTY || ep.BMENG, ep.BMENG);
+      if (qty <= 0) return err(`VL 150: No confirmed quantity for item ${it.REF_ITEM} of ${it.REF_DOC}`);
+      lines.push({ VBELN: vbeln, POSNR: String(posnr).padStart(6, '0'), VGBEL: it.REF_DOC, VGPOS: it.REF_ITEM, MATNR: ap.MATNR, LFIMG: qty, WERKS: ap.WERKS, LGORT: ap.LGORT, CHARG: (DB.MCHB.find(b => b.MATNR === ap.MATNR && b.WERKS === ap.WERKS && b.CLABS >= qty) || {}).CHARG || 'B2611-09' });
+      posnr += 10;
+    }
+    DB.LIKP.push({ VBELN: vbeln, LFART: 'LF', VSTEL: SHIP_POINT, KUNNR: first.KUNNR, LFDAT: DUE_DATE || TODAY, WADAT_IST: '', WBSTK: 'A', KOSTK: 'C', ERDAT: TODAY, PGI_ERR: '' });
+    DB.LIPS.push(...lines); first.GBSTK = 'B';
+    return { ...ok(`Delivery ${vbeln} created`), DELIVERY: vbeln };
+  },
+  BAPI_OUTB_DELIVERY_CHANGE({ DELIVERY, ITEM_DATA = [] }) { // used to assign batch
+    ITEM_DATA.forEach(d => { const l = DB.LIPS.find(r => r.VBELN === DELIVERY && r.POSNR === d.DELIV_ITEM); if (l) l.CHARG = d.BATCH; });
+    const h = DB.LIKP.find(r => r.VBELN === DELIVERY); if (h) h.PGI_ERR = '';
+    return ok(`Delivery ${DELIVERY} changed`);
+  },
+  WS_DELIVERY_UPDATE({ VBELN }) { // post goods issue (BAPI_OUTB_DELIVERY_CONFIRM_DEC in production)
+    const h = DB.LIKP.find(r => r.VBELN === VBELN); if (!h) return err('Delivery not found');
+    const items = DB.LIPS.filter(r => r.VBELN === VBELN);
+    for (const it of items) {
+      if (!it.CHARG) { h.PGI_ERR = `VL 609: Batch determination failed — no batch assigned to item ${it.POSNR}`; return err(h.PGI_ERR); }
+      const st = DB.MARD.find(m => m.MATNR === it.MATNR && m.WERKS === it.WERKS && m.LGORT === it.LGORT);
+      if (!st || st.LABST < it.LFIMG) { h.PGI_ERR = `M7 021: Deficit of SL Unrestricted-use ${it.LFIMG} EA : ${it.MATNR} ${it.WERKS} ${it.LGORT}`; return err(h.PGI_ERR); }
+    }
+    items.forEach(it => { const st = DB.MARD.find(m => m.MATNR === it.MATNR && m.WERKS === it.WERKS && m.LGORT === it.LGORT); st.LABST -= it.LFIMG; });
+    h.WBSTK = 'C'; h.WADAT_IST = TODAY; h.PGI_ERR = '';
+    return ok(`Goods issue posted for delivery ${VBELN}`);
+  },
+
+  /* ---- billing ---- */
+  BAPI_BILLINGDOC_CREATEMULTIPLE({ BILLINGDATAIN = [] }) {
+    const created = [];
+    for (const b of BILLINGDATAIN) {
+      const dlv = DB.LIKP.find(r => r.VBELN === b.REF_DOC); if (!dlv) return err(`Delivery ${b.REF_DOC} not found`);
+      if (dlv.WBSTK !== 'C') return err(`VF 044: Delivery ${b.REF_DOC} — goods issue not yet posted`);
+      const lines = DB.LIPS.filter(r => r.VBELN === b.REF_DOC);
+      const ord = DB.VBAK.find(r => r.VBELN === lines[0].VGBEL);
+      if (ord.FAKSK) return err(`VF 042: Sales document ${ord.VBELN} is blocked for billing (${ord.FAKSK})`);
+      const vbeln = nextNo('VBRK', 'VBELN', 90001303);
+      let netwr = 0; const items = [];
+      lines.forEach(l => { const ap = DB.VBAP.find(a => a.VBELN === l.VGBEL && a.POSNR === l.VGPOS); const val = ap.NETPR * l.LFIMG; netwr += val;
+        items.push({ VBELN: vbeln, POSNR: l.POSNR, VGBEL: l.VBELN, VGPOS: l.POSNR, AUBEL: l.VGBEL, AUPOS: l.VGPOS, MATNR: l.MATNR, FKIMG: l.LFIMG, NETWR: val }); });
+      // account determination check (VKOA) decides whether FI posting succeeds
+      const gap = items.find(i => { const m = DB.MAKT.find(x => x.MATNR === i.MATNR); return !DB.VKOA.find(v => v.KTGRM === m.KTGRM && v.KVSL1 === 'ERL'); });
+      const posted = !gap;
+      DB.VBRK.push({ VBELN: vbeln, FKART: 'F2', FKDAT: TODAY, KUNRG: ord.KUNNR, VKORG: ord.VKORG, NETWR: netwr, MWSBK: Math.round(netwr * 0.18), RFBSK: posted ? 'C' : 'E', FKSTO: '', BELNR: posted ? nextNo('BKPF', 'BELNR', 1400022900) : '', ACC_ERR: posted ? '' : `KI 235: account determination (VKOA) for account key ERL / material account assignment group ${DB.MAKT.find(x => x.MATNR === gap.MATNR).KTGRM} returned no G/L account` });
+      if (posted) DB.BKPF.push({ BELNR: DB.VBRK[DB.VBRK.length - 1].BELNR, AWKEY: vbeln, WRBTR: Math.round(netwr * 1.18), BUDAT: TODAY });
+      DB.VBRP.push(...items); ord.GBSTK = 'C';
+      DB.NAST.push({ KAPPL: 'V3', OBJKY: vbeln, KSCHL: 'RD00', NACHA: '5', VSTAT: '1', ERDAT: TODAY, PDEST: '', ERRTXT: '' });
+      DB.EINV.push({ VBELN: vbeln, IRN_STATUS: 'GENERATED', ERRCODE: '', ERRTXT: '', SUBMITTED: TODAY });
+      created.push(vbeln);
+    }
+    return { ...ok(`Billing document(s) ${created.join(', ')} saved`), SUCCESS: created };
+  },
+  RV_INVOICE_RELEASE_TO_ACCOUNTING({ VBELN }) { // VF02 → Release to accounting
+    const inv = DB.VBRK.find(r => r.VBELN === VBELN); if (!inv) return err('Billing document not found');
+    const items = DB.VBRP.filter(r => r.VBELN === VBELN);
+    const gap = items.find(i => { const m = DB.MAKT.find(x => x.MATNR === i.MATNR); return !DB.VKOA.find(v => v.KTGRM === m.KTGRM && v.KVSL1 === 'ERL'); });
+    if (inv.ACC_ERR.startsWith('FF 753') && !DB.TAXCODES_FIXED) return err(inv.ACC_ERR);
+    if (gap) return err(inv.ACC_ERR || 'Account determination error');
+    inv.RFBSK = 'C'; inv.ACC_ERR = ''; inv.BELNR = nextNo('BKPF', 'BELNR', 1400022900);
+    DB.BKPF.push({ BELNR: inv.BELNR, AWKEY: VBELN, WRBTR: inv.NETWR + inv.MWSBK, BUDAT: TODAY });
+    return ok(`Document ${VBELN} released to accounting — FI document ${inv.BELNR}`);
+  },
+
+  /* ---- output / EDI / e-invoice ---- */
+  RSNAST00({ OBJKY, KSCHL, PDEST }) { // reprocess output
+    const n = DB.NAST.find(r => r.OBJKY === OBJKY && r.KSCHL === KSCHL); if (!n) return err('Output record not found');
+    if (n.NACHA === '5') { const inv = DB.VBRK.find(r => r.VBELN === OBJKY); const k = DB.KNA1.find(r => r.KUNNR === inv.KUNRG); if (!k.SMTP_ADDR) return err(n.ERRTXT); }
+    if (n.NACHA === '1') { const dest = PDEST || n.PDEST; const p = DB.PRINTERS.find(r => r.PDEST === dest); if (!p || p.STATUS !== 'READY') return err(`Output device ${dest} not available`); n.PDEST = dest; }
+    n.VSTAT = '1'; n.ERRTXT = ''; return ok(`Output ${KSCHL} for ${OBJKY} processed successfully`);
+  },
+  BAPI_CUSTOMER_CHANGEFROMDATA({ KUNNR, SMTP_ADDR, STCD3 }) {
+    const k = DB.KNA1.find(r => r.KUNNR === KUNNR); if (!k) return err('Customer not found');
+    if (SMTP_ADDR !== undefined) k.SMTP_ADDR = SMTP_ADDR; if (STCD3 !== undefined) { k.STCD3 = STCD3; k.GSTIN_OK = true; }
+    return ok(`Customer ${KUNNR} changed`);
+  },
+  BD87_REPROCESS({ DOCNUM }) { // reprocess IDoc
+    const d = DB.EDIDC.find(r => r.DOCNUM === DOCNUM); if (!d) return err('IDoc not found');
+    if (!DB.WE20.find(w => w.PARNUM === d.RCVPRN && w.MESTYP === d.MESTYP)) return err(d.STATXT);
+    d.STATUS = '03'; d.STATXT = ''; return ok(`IDoc ${DOCNUM} passed to port (status 03)`);
+  },
+  WE20_CREATE_PARTNER_PROFILE({ PARNUM, PARTYP, MESTYP }) { DB.WE20.push({ PARNUM, PARTYP, MESTYP }); return ok(`Partner profile ${PARNUM}/${MESTYP} created`); },
+  EINV_RESUBMIT({ VBELN }) {
+    const e = DB.EINV.find(r => r.VBELN === VBELN); const inv = DB.VBRK.find(r => r.VBELN === VBELN); const k = DB.KNA1.find(r => r.KUNNR === inv.KUNRG);
+    if (!k.GSTIN_OK) return err(`IRP ${e.ERRCODE}: ${e.ERRTXT}`);
+    e.IRN_STATUS = 'GENERATED'; e.ERRCODE = ''; e.ERRTXT = ''; e.SUBMITTED = TODAY; return ok(`IRN generated for ${VBELN}`);
+  },
+
+  /* ---- pricing & customising ---- */
+  BAPI_PRICES_CONDITIONS({ KSCHL, VKORG, VTWEG, KUNNR, MATNR, DATAB, DATBI, KBETR }) {
+    DB.A305.push({ KSCHL, VKORG, VTWEG, KUNNR, MATNR, DATAB, DATBI, KBETR }); return ok(`Condition record ${KSCHL} ${KUNNR}/${MATNR} valid ${DATAB}–${DATBI} created`);
+  },
+  VKOA_MAINTAIN({ KTGRM, KVSL1, SAKNR }) { DB.VKOA.push({ KTOPL: 'INT', KTGRM, KVSL1, SAKNR }); return ok(`VKOA: ${KTGRM}/${KVSL1} → G/L ${SAKNR} maintained (transport request created)`); },
+  FTXP_MAINTAIN({ MWSKZ }) { DB.TAXCODES_FIXED = true; DB.VBRK.filter(v => v.ACC_ERR.startsWith('FF 753')).forEach(v => { /* error clears on release */ }); return ok(`Tax code ${MWSKZ} maintained in TAXINN`); },
+  KNMT_CREATE({ KUNNR, VKORG, VTWEG, KDMAT, MATNR, UMREZ }) { DB.KNMT.push({ KUNNR, VKORG, VTWEG, KDMAT, MATNR, UMREZ }); return ok(`Customer-material info ${KDMAT} → ${MATNR} created`); },
+};
+
+/* ---- persistence of the mock DB (browser local storage) ---- */
+const DB_KEY = 'infrabeat.sd.agent.db.v1';
+let DB = null;
+function loadDB() { try { const s = JSON.parse(localStorage.getItem(DB_KEY)); DB = s && s.VBAK ? s : JSON.parse(JSON.stringify(SAP_TABLES)); } catch { DB = JSON.parse(JSON.stringify(SAP_TABLES)); } }
+function persistDB() { try { localStorage.setItem(DB_KEY, JSON.stringify(DB)); } catch { /* storage unavailable: in-memory only */ } }
+function resetDB() { DB = JSON.parse(JSON.stringify(SAP_TABLES)); try { localStorage.removeItem(DB_KEY); } catch {} }
+
+
+/* =====================================================================
+   SD ISSUE CATALOG
+   One entry per recurring SD problem. Each entry knows how to DETECT the
+   problem from SAP tables, what EVIDENCE to show, and the exact function
+   module(s) that FIX it. The engine (app.js) handles approvals, consultant
+   assignment, execution and verification generically.
+
+   module      : which tab the issue lives on
+   execRole    : what execute-right a user needs (see ROLES in data.js)
+   approval    : approval kind required before execution (null = none)
+   skill       : consultant skill used for assignment suggestions
+   minutes     : key into MINUTES_SAVED
+   detect()    : async -> array of issue drafts
+   ===================================================================== */
+
+MOCK_FM.ZSD_INBOX_UPDATE = ({ ID, STATUS, SALESDOCUMENT }) => { const p = DB.ZSD_PO_INBOX.find(r => r.ID === ID); if (!p) return err('Inbox record not found'); p.STATUS = STATUS; if (SALESDOCUMENT) p.VBELN = SALESDOCUMENT; return ok(`Inbox ${ID} set to ${STATUS}`); };
+
+const custName = (k) => (DB.KNA1.find(c => c.KUNNR === k) || {}).NAME1 || k;
+const matName = (m) => (DB.MAKT.find(c => c.MATNR === m) || {}).MAKTX || m;
+const orgName = (v) => (DB.TVKO.find(c => c.VKORG === v) || {}).VTEXT || v;
+const blockText = (t, code, f) => ((DB[t] || []).find(r => r[f] === code) || {}).VTEXT || code;
+const ev = (h, lines) => ({ h, text: Array.isArray(lines) ? lines.join('\n') : lines });
+
+const CATALOG = [
+  /* ================= 1. ORDER TRACKER ================= */
+  {
+    id: 'SD-01', module: 'tracker', title: 'Order on delivery block', execRole: 'order', approval: 'block', skill: 'order', minutes: 'blocked',
+    async detect() {
+      const out = [];
+      for (const o of await SAP.read('VBAK')) {
+        if (!o.LIFSK) continue;
+        const reason = blockText('TVLST', o.LIFSK, 'LIFSP'); const age = ageDays(o.ERDAT);
+        out.push({
+          key: `SD-01:${o.VBELN}`, ref: o.VBELN, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: o.NETWR, severity: age > 3 ? 'r' : 'a',
+          title: `Order ${o.VBELN} blocked for delivery — ${reason}`,
+          detail: `${custName(o.KUNNR)} · ${inr(o.NETWR)} · requested ${dmy(o.VDATU)} · blocked ${age} days`,
+          explain: `VBAK-LIFSK = '${o.LIFSK}' (${reason}). The delivery due list skips this order until the block is removed. ${o.LIFSK === 'Z1' ? 'Customer confirmation was pending at order entry — if the customer has confirmed, the block can be released.' : ''}`,
+          evidence: [ev('VBAK', [`VBELN ${o.VBELN} · AUART ${o.AUART} · VKORG ${o.VKORG}`, `LIFSK ${o.LIFSK} (${reason}) · FAKSK '${o.FAKSK}' · CMGST '${o.CMGST}'`, `ERDAT ${o.ERDAT} · VDATU ${o.VDATU} · NETWR ${inrFull(o.NETWR)}`])],
+          fix: { label: 'Release delivery block', steps: [{ fm: 'BAPI_SALESORDER_CHANGE', params: { SALESDOCUMENT: o.VBELN, ORDER_HEADER_IN: { DLV_BLOCK: '' }, ORDER_HEADER_INX: { DLV_BLOCK: 'X' } } }], effect: 'Clears VBAK-LIFSK; order becomes due for delivery on the next VL10 run.' },
+        });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-02', module: 'tracker', title: 'Incomplete order', execRole: 'order', approval: null, skill: 'order', minutes: 'incomplete',
+    async detect() {
+      const out = []; const log = await SAP.read('VBUV');
+      for (const vbeln of [...new Set(log.map(r => r.VBELN))]) {
+        const o = await SAP.one('VBAK', { VBELN: vbeln }); const rows = log.filter(r => r.VBELN === vbeln); const kv = await SAP.one('KNVV', { KUNNR: o.KUNNR });
+        const inco = kv && kv.INCO1 ? kv.INCO1 : 'FOR';
+        out.push({
+          key: `SD-02:${vbeln}`, ref: vbeln, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: o.NETWR, severity: 'a',
+          title: `Order ${vbeln} incomplete — ${rows.map(r => r.FDTXT).join(', ')}`,
+          detail: `${custName(o.KUNNR)} · ${inr(o.NETWR)} · cannot be delivered or billed until complete`,
+          explain: `Incompletion log (VBUV) has ${rows.length} open field(s). Customer master (KNVV) has ${kv && kv.INCO1 ? `Incoterms ${kv.INCO1}` : 'no Incoterms'} — proposal uses ${inco} (customer-group default) and sold-to as ship-to.`,
+          evidence: [ev('VBUV', rows.map(r => `${r.TBNAM}-${r.FDNAM}  ${r.FDTXT}`)), ev('KNVV', [`KUNNR ${o.KUNNR} · INCO1 '${kv ? kv.INCO1 : ''}' · ZTERM ${kv ? kv.ZTERM : ''}`])],
+          fix: { label: 'Complete order with defaults', steps: [{ fm: 'BAPI_SALESORDER_CHANGE', params: { SALESDOCUMENT: vbeln, ORDER_HEADER_IN: { INCOTERMS1: inco }, ORDER_HEADER_INX: { INCOTERMS1: 'X' }, INCOMPLETE_FIELDS: rows.map(r => r.FDNAM) } }], effect: `Sets Incoterms ${inco}, copies sold-to as ship-to, clears the incompletion log.` },
+        });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-03', module: 'tracker', title: 'Confirmed quantity short', execRole: 'order', approval: null, skill: 'stock', minutes: 'tracker',
+    async detect() {
+      const out = []; const eps = await SAP.read('VBEP');
+      for (const o of await SAP.read('VBAK')) {
+        const mine = eps.filter(e => e.VBELN === o.VBELN); const gap = sumBy(mine, e => e.WMENG - e.BMENG);
+        if (gap <= 0 || o.LIFSK || o.CMGST === 'B') continue;
+        const items = await SAP.read('VBAP', { VBELN: o.VBELN }); const alt = [];
+        for (const it of items) { const e = mine.find(x => x.POSNR === it.POSNR); if (e.WMENG - e.BMENG <= 0) continue; const st = await SAP.read('MARD', { MATNR: it.MATNR }); alt.push(`${it.MATNR} short ${n(e.WMENG - e.BMENG)} at ${it.WERKS}: ` + st.map(s => `${s.WERKS} ${n(s.LABST)}`).join(' · ')); }
+        out.push({
+          key: `SD-03:${o.VBELN}`, ref: o.VBELN, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: o.NETWR, severity: ageDays(o.VDATU) >= 0 ? 'r' : 'a',
+          title: `Order ${o.VBELN} — ${n(gap)} EA unconfirmed`, detail: `${custName(o.KUNNR)} · requested ${dmy(o.VDATU)} · ${inr(o.NETWR)}`,
+          explain: `Schedule lines (VBEP) confirm less than ordered. Stock at the delivering plant is insufficient; other plants hold stock. Needs a planner decision (alternate plant, partial delivery or re-date) — not auto-fixed.`,
+          evidence: [ev('VBEP', mine.map(e => `${e.POSNR} ordered ${n(e.WMENG)} · confirmed ${n(e.BMENG)} · ${e.EDATU}`)), ev('MARD unrestricted stock', alt)],
+          fix: null, task: { skill: 'stock', title: `Resolve supply for ${o.VBELN} (${n(gap)} EA short)` },
+        });
+      }
+      return out;
+    },
+  },
+
+  /* ================= 2. BILLING BACKLOG ================= */
+  {
+    id: 'SD-10', module: 'billing', title: 'Delivered but not billed', execRole: 'billing', approval: null, skill: 'billing', minutes: 'billing',
+    async detect() {
+      const out = []; const vbrp = await SAP.read('VBRP');
+      for (const d of await SAP.read('LIKP', { WBSTK: 'C' })) {
+        if (vbrp.some(b => b.VGBEL === d.VBELN)) continue;
+        const lines = await SAP.read('LIPS', { VBELN: d.VBELN }); const o = await SAP.one('VBAK', { VBELN: lines[0].VGBEL });
+        const value = sumBy(lines, l => { const ap = DB.VBAP.find(a => a.VBELN === l.VGBEL && a.POSNR === l.VGPOS); return ap ? ap.NETPR * l.LFIMG : 0; });
+        const days = ageDays(d.WADAT_IST); const blocked = !!o.FAKSK;
+        out.push({
+          key: `SD-10:${d.VBELN}`, ref: d.VBELN, refType: 'delivery', order: o.VBELN, kunnr: o.KUNNR, vkorg: o.VKORG, value, severity: blocked || days > 5 ? 'r' : 'a',
+          title: blocked ? `Delivery ${d.VBELN} unbilled — order has billing block (${blockText('TVFST', o.FAKSK, 'FAKSP')})` : `Delivery ${d.VBELN} delivered ${days} days ago, not billed`,
+          detail: `${custName(o.KUNNR)} · order ${o.VBELN} · ${inr(value)} · PGI ${dmy(d.WADAT_IST)}`,
+          explain: blocked ? `VBAK-FAKSK = '${o.FAKSK}' keeps this delivery out of the billing due list (VF04). Removing the block needs SD Lead approval; billing then runs on the next pass.` : `Goods issue posted (LIKP-WBSTK = C) but no VBRP line references this delivery. Nothing blocks it — VF04 was simply not run for it. Safe to bill now.`,
+          evidence: [ev('LIKP / LIPS', [`VBELN ${d.VBELN} · WBSTK ${d.WBSTK} · WADAT_IST ${d.WADAT_IST}`, ...lines.map(l => `${l.POSNR} ${l.MATNR} ${n(l.LFIMG)} EA ← ${l.VGBEL}/${l.VGPOS}`)]), ev('VBAK', [`FAKSK '${o.FAKSK}' · ZTERM ${(DB.KNVV.find(k => k.KUNNR === o.KUNNR) || {}).ZTERM}`])],
+          ...(blocked
+            ? { approval: 'billing_block', fix: { label: 'Remove billing block', steps: [{ fm: 'BAPI_SALESORDER_CHANGE', params: { SALESDOCUMENT: o.VBELN, ORDER_HEADER_IN: { BILL_BLOCK: '' }, ORDER_HEADER_INX: { BILL_BLOCK: 'X' } } }], effect: 'Clears VBAK-FAKSK; the delivery re-appears here as "ready to bill".' } }
+            : { fix: { label: 'Create billing document', steps: [{ fm: 'BAPI_BILLINGDOC_CREATEMULTIPLE', params: { BILLINGDATAIN: [{ REF_DOC: d.VBELN, REF_DOC_CA: 'J' }] } }], effect: 'Creates an F2 invoice from the delivery, posts to FI if account determination succeeds, triggers invoice output and IRN.' } }),
+        });
+      }
+      return out;
+    },
+  },
+
+  /* ================= 3. DELIVERIES & PGI ================= */
+  {
+    id: 'SD-20', module: 'delivery', title: 'Due for delivery, no delivery created', execRole: 'delivery', approval: null, skill: 'delivery', minutes: 'delivery',
+    async detect() {
+      const out = []; const likp = await SAP.read('LIPS'); const eps = await SAP.read('VBEP');
+      for (const o of await SAP.read('VBAK')) {
+        if (o.LIFSK || o.CMGST === 'B' || likp.some(l => l.VGBEL === o.VBELN)) continue;
+        const mine = eps.filter(e => e.VBELN === o.VBELN && e.EDATU <= addDays(TODAY, 1) && e.BMENG > 0); if (!mine.length) continue;
+        if (DB.VBUV.some(v => v.VBELN === o.VBELN)) continue;
+        const partial = mine.some(e => e.BMENG < e.WMENG); const items = await SAP.read('VBAP', { VBELN: o.VBELN });
+        out.push({
+          key: `SD-20:${o.VBELN}`, ref: o.VBELN, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: o.NETWR, severity: partial ? 'a' : 'r',
+          title: partial ? `Order ${o.VBELN} due today — only ${n(sumBy(mine, e => e.BMENG))} of ${n(sumBy(mine, e => e.WMENG))} EA confirmed` : `Order ${o.VBELN} due ${dmy(mine[0].EDATU)} — delivery not created`,
+          detail: `${custName(o.KUNNR)} · plant ${items[0].WERKS} · ${inr(o.NETWR)}`,
+          explain: partial ? `Confirmed quantity covers part of the order. A partial delivery keeps the customer promise for the confirmed part; the shortfall stays open on the order. Partial deliveries need SD Lead approval.` : `All schedule lines are confirmed and due, no blocks, stock available — the delivery due list (VL10) has not been processed for this order.`,
+          evidence: [ev('VBEP', mine.map(e => `${e.POSNR} due ${e.EDATU} · confirmed ${n(e.BMENG)} / ${n(e.WMENG)}`)), ev('Stock (MARD)', items.map(i => { const s = DB.MARD.find(m => m.MATNR === i.MATNR && m.WERKS === i.WERKS); return `${i.MATNR} @ ${i.WERKS}: ${s ? n(s.LABST) : 0} EA`; }))],
+          approval: partial ? 'delivery' : null,
+          fix: { label: partial ? 'Create partial delivery' : 'Create delivery', steps: [{ fm: 'BAPI_OUTB_DELIVERY_CREATE_SLS', params: { SHIP_POINT: items[0].WERKS, DUE_DATE: TODAY, SALES_ORDER_ITEMS: mine.map(e => ({ REF_DOC: o.VBELN, REF_ITEM: e.POSNR, DLV_QTY: e.BMENG })) } }], effect: 'Creates an LF delivery for the confirmed quantities; picking is complete (no WM); PGI remains a separate step.' },
+        });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-21', module: 'delivery', title: 'Goods issue not posted', execRole: 'delivery', approval: null, skill: 'delivery', minutes: 'pgi',
+    async detect() {
+      const out = [];
+      for (const d of await SAP.read('LIKP')) {
+        if (d.WBSTK === 'C') continue;
+        const lines = await SAP.read('LIPS', { VBELN: d.VBELN }); const o = await SAP.one('VBAK', { VBELN: lines[0].VGBEL });
+        const noBatch = lines.filter(l => !l.CHARG); const steps = [];
+        for (const l of noBatch) { const b = (await SAP.read('MCHB', { MATNR: l.MATNR, WERKS: l.WERKS })).filter(x => x.CLABS >= l.LFIMG).sort(by('VFDAT'))[0]; if (b) steps.push({ fm: 'BAPI_OUTB_DELIVERY_CHANGE', params: { DELIVERY: d.VBELN, ITEM_DATA: [{ DELIV_ITEM: l.POSNR, BATCH: b.CHARG }] }, note: `assign batch ${b.CHARG} (${n(b.CLABS)} EA, FEFO)` }); }
+        steps.push({ fm: 'WS_DELIVERY_UPDATE', params: { VBELN: d.VBELN } });
+        out.push({
+          key: `SD-21:${d.VBELN}`, ref: d.VBELN, refType: 'delivery', order: o.VBELN, kunnr: o.KUNNR, vkorg: o.VKORG, value: o.NETWR, severity: d.PGI_ERR ? 'r' : 'a',
+          title: d.PGI_ERR ? `Delivery ${d.VBELN} — PGI failed (batch determination)` : `Delivery ${d.VBELN} picked, goods issue pending`,
+          detail: `${custName(o.KUNNR)} · order ${o.VBELN} · planned GI ${dmy(d.LFDAT)} · ${inr(o.NETWR)}`,
+          explain: d.PGI_ERR ? `${d.PGI_ERR}. Batch stock (MCHB) at the plant has a batch with enough quantity — the strategy's minimum-remaining-shelf-life check excluded it. Proposal assigns the FEFO batch manually and posts PGI.` : `Picking status complete (KOSTK = C), goods movement status ${d.WBSTK}. Nothing blocks PGI — it was not posted after picking.`,
+          evidence: [ev('LIKP', [`VBELN ${d.VBELN} · WBSTK '${d.WBSTK}' · KOSTK ${d.KOSTK} · LFDAT ${d.LFDAT}`, d.PGI_ERR ? `Last error: ${d.PGI_ERR}` : 'No error logged']), ev('LIPS', lines.map(l => `${l.POSNR} ${l.MATNR} ${n(l.LFIMG)} EA · ${l.WERKS}/${l.LGORT} · batch '${l.CHARG}'`))],
+          fix: { label: d.PGI_ERR ? 'Assign batch and post goods issue' : 'Post goods issue', steps, effect: 'Posts the goods movement (601), sets LIKP-WBSTK = C, reduces plant stock; the delivery becomes due for billing.' },
+        });
+      }
+      return out;
+    },
+  },
+
+  /* ================= 4. OUTPUTS, IDOCS, E-INVOICE ================= */
+  {
+    id: 'SD-30', module: 'output', title: 'Output failed (NAST)', execRole: 'output', approval: null, skill: 'output', minutes: 'output',
+    async detect() {
+      const out = [];
+      for (const r of await SAP.read('NAST', { VSTAT: '2' })) {
+        let kunnr, vkorg, steps = [], label, explain, extra = [];
+        if (r.NACHA === '5') { const inv = await SAP.one('VBRK', { VBELN: r.OBJKY }); kunnr = inv.KUNRG; vkorg = inv.VKORG; const k = await SAP.one('KNA1', { KUNNR: kunnr }); const po = DB.ZSD_PO_INBOX.find(p => p.KUNNR === kunnr);
+          const guess = k.SMTP_ADDR || `ap@${k.NAME1.toLowerCase().split(' ')[0]}-${k.NAME1.toLowerCase().split(' ')[1] || 'co'}.example`;
+          label = 'Maintain e-mail and resend invoice'; explain = `KNA1-SMTP_ADDR is empty for ${k.NAME1}, so the e-mail output cannot be sent. ${po ? `The customer's last PO came from an address we can use.` : 'Proposed address is derived from the customer name — confirm before sending.'}`;
+          steps = [{ fm: 'BAPI_CUSTOMER_CHANGEFROMDATA', params: { KUNNR: kunnr, SMTP_ADDR: guess }, input: { name: 'SMTP_ADDR', label: 'Customer e-mail address', default: guess } }, { fm: 'RSNAST00', params: { OBJKY: r.OBJKY, KSCHL: r.KSCHL } }];
+          extra = [ev('KNA1', [`KUNNR ${kunnr} · NAME1 ${k.NAME1} · SMTP_ADDR '${k.SMTP_ADDR}'`])];
+        } else { const o = await SAP.one('VBAK', { VBELN: r.OBJKY }); kunnr = o.KUNNR; vkorg = o.VKORG; const alt = (DB.PRINTERS.find(p => p.STATUS === 'READY') || {}).PDEST;
+          label = `Reprint on ${alt}`; explain = `Output device ${r.PDEST} is offline (SPAD). ${alt} is ready at the same location — proposal re-issues the output there.`;
+          steps = [{ fm: 'RSNAST00', params: { OBJKY: r.OBJKY, KSCHL: r.KSCHL, PDEST: alt }, input: { name: 'PDEST', label: 'Output device', default: alt } }];
+          extra = [ev('SPAD', DB.PRINTERS.map(p => `${p.PDEST} ${p.STATUS}`))];
+        }
+        out.push({ key: `SD-30:${r.OBJKY}:${r.KSCHL}`, ref: r.OBJKY, refType: r.KAPPL === 'V3' ? 'invoice' : 'order', kunnr, vkorg, value: 0, severity: 'a',
+          title: `${r.KSCHL} output failed for ${r.KAPPL === 'V3' ? 'invoice' : 'order'} ${r.OBJKY}`, detail: `${custName(kunnr)} · ${r.ERRTXT}`, explain,
+          evidence: [ev('NAST', [`KAPPL ${r.KAPPL} · OBJKY ${r.OBJKY} · KSCHL ${r.KSCHL} · NACHA ${r.NACHA} · VSTAT ${r.VSTAT}`, r.ERRTXT]), ...extra],
+          fix: { label, steps, effect: 'Re-processes the NAST record (RSNAST00); status becomes 1 on success.' } });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-31', module: 'output', title: 'IDoc in error', execRole: 'config', approval: null, skill: 'idoc', minutes: 'idoc',
+    async detect() {
+      const out = [];
+      for (const d of await SAP.read('EDIDC')) {
+        if (!['29', '51', '26'].includes(d.STATUS)) continue;
+        const inv = await SAP.one('VBRK', { VBELN: d.OBJKY }); const hasProfile = DB.WE20.some(w => w.PARNUM === d.RCVPRN && w.MESTYP === d.MESTYP);
+        out.push({ key: `SD-31:${d.DOCNUM}`, ref: d.DOCNUM, refType: 'idoc', kunnr: d.RCVPRN, vkorg: inv ? inv.VKORG : '', value: inv ? inv.NETWR : 0, severity: 'r',
+          title: `IDoc ${d.MESTYP} ${d.DOCNUM.replace(/^0+/, '')} — status ${d.STATUS}`, detail: `${custName(d.RCVPRN)} · invoice ${d.OBJKY} · ${d.STATXT}`,
+          explain: hasProfile ? 'Partner profile now exists — the IDoc can be re-processed.' : `No outbound partner profile for ${d.RCVPRN}/${d.MESTYP} in WE20. This is a configuration task for the EDI consultant: create the profile (port, message control), then re-process the IDoc.`,
+          evidence: [ev('EDIDC', [`DOCNUM ${d.DOCNUM} · MESTYP ${d.MESTYP} · IDOCTP ${d.IDOCTP} · RCVPRN ${d.RCVPRN} · STATUS ${d.STATUS}`, d.STATXT]), ev('WE20', DB.WE20.filter(w => w.PARNUM === d.RCVPRN).map(w => `${w.PARNUM} ${w.PARTYP} ${w.MESTYP}`).concat(hasProfile ? [] : [`(no ${d.MESTYP} entry for ${d.RCVPRN})`]))],
+          task: hasProfile ? null : { skill: 'idoc', title: `Create WE20 partner profile ${d.RCVPRN}/${d.MESTYP} and re-process IDoc` },
+          fix: { label: hasProfile ? 'Re-process IDoc' : 'Create partner profile and re-process', steps: [...(hasProfile ? [] : [{ fm: 'WE20_CREATE_PARTNER_PROFILE', params: { PARNUM: d.RCVPRN, PARTYP: 'KU', MESTYP: d.MESTYP }, note: 'configuration — consultant' }]), { fm: 'BD87_REPROCESS', params: { DOCNUM: d.DOCNUM } }], effect: 'IDoc passes to the port (status 03) and reaches the customer.' } });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-32', module: 'output', title: 'E-invoice (IRN) rejected', execRole: 'output', approval: null, skill: 'einvoice', minutes: 'einvoice',
+    async detect() {
+      const out = [];
+      for (const e of await SAP.read('EINV', { IRN_STATUS: 'REJECTED' })) {
+        const inv = await SAP.one('VBRK', { VBELN: e.VBELN }); const k = await SAP.one('KNA1', { KUNNR: inv.KUNRG });
+        out.push({ key: `SD-32:${e.VBELN}`, ref: e.VBELN, refType: 'invoice', kunnr: inv.KUNRG, vkorg: inv.VKORG, value: inv.NETWR, severity: 'r',
+          title: `IRN rejected for invoice ${e.VBELN} — error ${e.ERRCODE}`, detail: `${k.NAME1} · ${inr(inv.NETWR)} · ${e.ERRTXT}`,
+          explain: `The IRP rejected the invoice because the recipient GSTIN on the customer master (KNA1-STCD3 = ${k.STCD3}) is cancelled or inactive. The customer must supply a valid GSTIN; then update the master and resubmit. Until the IRN exists the invoice cannot legally be dispatched.`,
+          evidence: [ev('E-invoice', [`VBELN ${e.VBELN} · IRN_STATUS ${e.IRN_STATUS} · ${e.ERRCODE} ${e.ERRTXT} · submitted ${e.SUBMITTED}`]), ev('KNA1', [`KUNNR ${k.KUNNR} · STCD3 ${k.STCD3} · GSTIN valid: ${k.GSTIN_OK ? 'yes' : 'NO'}`])],
+          fix: { label: 'Update GSTIN and resubmit IRN', steps: [{ fm: 'BAPI_CUSTOMER_CHANGEFROMDATA', params: { KUNNR: k.KUNNR, STCD3: '' }, input: { name: 'STCD3', label: 'Valid GSTIN (from customer)', default: '' } }, { fm: 'EINV_RESUBMIT', params: { VBELN: e.VBELN } }], effect: 'Updates KNA1-STCD3, re-submits the invoice to the IRP; IRN and QR code are stored on the invoice.' },
+          task: { skill: 'einvoice', title: `Obtain valid GSTIN from ${k.NAME1} for invoice ${e.VBELN}` } });
+      }
+      return out;
+    },
+  },
+
+  /* ================= 5. PO INBOX → ORDER CAPTURE ================= */
+  {
+    id: 'SD-40', module: 'po', title: 'Customer PO waiting to be captured', execRole: 'po', approval: null, skill: 'order', minutes: 'po',
+    async detect() {
+      const out = [];
+      for (const p of await SAP.read('ZSD_PO_INBOX', { STATUS: 'New' })) {
+        const k = await SAP.one('KNA1', { KUNNR: p.KUNNR }); const kv = await SAP.one('KNVV', { KUNNR: p.KUNNR });
+        const dup = (await SAP.read('VBAK', { KUNNR: p.KUNNR, BSTNK: p.BSTNK }))[0];
+        const lines = []; const unmapped = [];
+        for (const l of p.LINES) {
+          const m = DB.KNMT.find(x => x.KUNNR === p.KUNNR && x.KDMAT === l.KDMAT);
+          if (!m) { const guess = DB.MAKT.find(x => l.KDMAT.toUpperCase().includes('DISH') && x.MAKTX.includes('Dish')) || DB.MAKT[0]; unmapped.push({ ...l, guess: guess.MATNR, guessName: guess.MAKTX }); lines.push({ ...l, MATNR: null }); continue; }
+          const qty = l.CASES * m.UMREZ; const rec = DB.A305.find(a => a.KUNNR === p.KUNNR && a.MATNR === m.MATNR && a.DATAB <= TODAY && a.DATBI >= TODAY) || DB.A304.find(a => a.MATNR === m.MATNR && a.VKORG === p.VKORG);
+          const sapPrice = rec ? rec.KBETR : 0; const poUnit = l.PRICE_ON_PO / m.UMREZ; const var_ = sapPrice ? ((poUnit - sapPrice) / sapPrice * 100) : 0;
+          lines.push({ ...l, MATNR: m.MATNR, UMREZ: m.UMREZ, QTY: qty, SAP_PRICE: sapPrice, PO_UNIT: poUnit, VAR: var_ });
+        }
+        const plant = { '1000': '1100', '2000': '2100', '3000': '3100' }[p.VKORG];
+        const draft = { key: `SD-40:${p.ID}`, ref: p.ID, refType: 'po', kunnr: p.KUNNR, vkorg: p.VKORG, value: sumBy(lines, l => (l.QTY || 0) * (l.SAP_PRICE || 0)), severity: dup ? 'r' : unmapped.length ? 'a' : 'g', po: p, lines, unmapped, dup };
+        if (dup) Object.assign(draft, { title: `PO ${p.BSTNK} from ${k.NAME1} already exists as order ${dup.VBELN}`, detail: `Duplicate purchase order — received ${p.RECEIVED} via ${p.SOURCE}`, explain: `VBAK-BSTNK '${p.BSTNK}' for customer ${p.KUNNR} is already on sales order ${dup.VBELN} (created ${dup.ERDAT}). Creating it again would double-ship. Proposal: mark the inbox item as duplicate and reply to the customer with the existing order number.`,
+          evidence: [ev('Inbox', [`${p.ID} · ${p.SOURCE} · received ${p.RECEIVED} · extraction confidence ${(p.CONFIDENCE * 100).toFixed(0)}%`]), ev('VBAK duplicate', [`VBELN ${dup.VBELN} · BSTNK ${dup.BSTNK} · ERDAT ${dup.ERDAT} · NETWR ${inrFull(dup.NETWR)}`])],
+          fix: { label: 'Mark as duplicate (no order)', steps: [{ fm: 'ZSD_INBOX_UPDATE', params: { ID: p.ID, STATUS: 'Duplicate' } }], effect: 'No SAP document is created; inbox item closed with reference to the existing order.' } });
+        else if (unmapped.length) Object.assign(draft, { title: `PO ${p.BSTNK} from ${k.NAME1} — ${unmapped.length} line(s) not mapped to a material`, detail: `${p.LINES.length} lines · received ${p.RECEIVED} · customer material '${unmapped.map(u => u.KDMAT).join("', '")}' has no KNMT record`,
+          explain: `Customer material ${unmapped.map(u => u.KDMAT).join(', ')} is not in the customer-material info record (KNMT). Best match by description: ${unmapped.map(u => `${u.KDMAT} → ${u.guess} ${u.guessName}`).join('; ')}. Confirm the mapping; the tool creates the KNMT record and then the order.`,
+          evidence: [ev('Extracted PO lines', p.LINES.map(l => `${l.KDMAT} · ${l.CASES} ${l.UOM} · ₹${l.PRICE_ON_PO}/case`)), ev('KNMT', DB.KNMT.filter(x => x.KUNNR === p.KUNNR).map(x => `${x.KDMAT} → ${x.MATNR} (×${x.UMREZ})`))],
+          fix: { label: 'Map material and create order', steps: [...unmapped.map(u => ({ fm: 'KNMT_CREATE', params: { KUNNR: p.KUNNR, VKORG: p.VKORG, VTWEG: '10', KDMAT: u.KDMAT, MATNR: u.guess, UMREZ: 24 }, input: { name: 'MATNR', label: `SAP material for ${u.KDMAT}`, default: u.guess }, input2: { name: 'UMREZ', label: 'Units per case', default: 24 } })),
+            { fm: 'BAPI_SALESORDER_CREATEFROMDAT2', params: { ORDER_HEADER_IN: { DOC_TYPE: 'OR', SALES_ORG: p.VKORG, DISTR_CHAN: '10', DIVISION: '00', KUNNR: p.KUNNR, PURCH_NO_C: p.BSTNK, REQ_DATE_H: p.REQ_DATE }, ORDER_ITEMS_IN: lines.map(l => ({ MATERIAL: l.MATNR, TARGET_QTY: l.QTY, PLANT: plant, KDMAT: l.KDMAT, CASES: l.CASES })) }, dynamic: 'po-lines' },
+            { fm: 'ZSD_INBOX_UPDATE', params: { ID: p.ID, STATUS: 'Created' }, dynamic: 'po-close' }], effect: 'Creates the KNMT mapping, then a standard order (OR) with all lines; inbox item closed with the order number.' } });
+        else Object.assign(draft, { title: `PO ${p.BSTNK} from ${k.NAME1} — ready to create (${lines.length} lines, ${inr(draft.value)})`, detail: `Received ${p.RECEIVED} via ${p.SOURCE} · requested ${dmy(p.REQ_DATE)} · all lines mapped · ${lines.some(l => Math.abs(l.VAR) > 2) ? 'price on PO differs from SAP price' : 'prices match SAP'}`,
+          explain: `All customer materials map through KNMT; case quantities converted to EA. ${lines.some(l => Math.abs(l.VAR) > 2) ? 'One or more PO unit prices differ from the SAP condition by more than 2% — SAP pricing applies; the difference is flagged for the account manager.' : 'PO unit prices match SAP condition records within 2%.'} No duplicate PO number. Safe to create.`,
+          evidence: [ev('Extracted PO lines → SAP', lines.map(l => `${l.KDMAT} → ${l.MATNR} · ${l.CASES} CS × ${l.UMREZ} = ${n(l.QTY)} EA · PO ₹${l.PO_UNIT.toFixed(0)}/EA vs SAP ₹${l.SAP_PRICE} (${l.VAR >= 0 ? '+' : ''}${l.VAR.toFixed(1)}%)`)), ev('Duplicate check', [`VBAK where KUNNR = ${p.KUNNR} and BSTNK = '${p.BSTNK}' → 0 rows`])],
+          fix: { label: 'Create sales order', steps: [{ fm: 'BAPI_SALESORDER_CREATEFROMDAT2', params: { ORDER_HEADER_IN: { DOC_TYPE: 'OR', SALES_ORG: p.VKORG, DISTR_CHAN: '10', DIVISION: '00', KUNNR: p.KUNNR, PURCH_NO_C: p.BSTNK, REQ_DATE_H: p.REQ_DATE }, ORDER_ITEMS_IN: lines.map(l => ({ MATERIAL: l.MATNR, TARGET_QTY: l.QTY, PLANT: plant })) } }, { fm: 'ZSD_INBOX_UPDATE', params: { ID: p.ID, STATUS: 'Created' }, dynamic: 'po-close' }], effect: 'Creates a standard order (OR) with ATP check and pricing; order confirmation output is triggered by SAP.' } });
+        out.push(draft);
+      }
+      return out;
+    },
+  },
+
+  /* ================= 6. CREDIT BLOCKS ================= */
+  {
+    id: 'SD-50', module: 'credit', title: 'Order on credit block', execRole: 'credit', approval: 'credit', skill: 'credit', minutes: 'credit',
+    async detect() {
+      const out = [];
+      for (const o of await SAP.read('VBAK', { CMGST: 'B' })) {
+        const c = await SAP.one('KNKK', { KUNNR: o.KUNNR }); const k = await SAP.one('KNA1', { KUNNR: o.KUNNR });
+        const util = c.SKFOR / c.KLIMK * 100; const over = c.SKFOR + o.NETWR - c.KLIMK; const risky = c.DPD > 15 || c.OVERDUE > 0.1 * c.SKFOR;
+        out.push({ key: `SD-50:${o.VBELN}`, ref: o.VBELN, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: o.NETWR, severity: risky ? 'r' : 'a', credit: c, recommend: risky ? 'hold' : 'release',
+          title: `Order ${o.VBELN} on credit block — ${k.NAME1} at ${util.toFixed(0)}% of limit`, detail: `${inr(o.NETWR)} order · exposure ${inr(c.SKFOR)} of ${inr(c.KLIMK)} · overdue ${inr(c.OVERDUE)} (${c.DPD} days)`,
+          explain: risky ? `Recommendation: HOLD. Overdue ${inr(c.OVERDUE)} is ${(c.OVERDUE / c.SKFOR * 100).toFixed(0)}% of exposure and ${c.DPD} days past due; payment history is "${c.PAYHIST}". Releasing adds ${inr(o.NETWR)} on top of a limit already exceeded by ${inr(c.SKFOR - c.KLIMK)}. Ask collections to secure payment first.` : `Recommendation: RELEASE. The block is a dynamic limit check (exposure + this order exceeds the limit by ${inr(over)}), but overdue is only ${inr(c.OVERDUE)} at ${c.DPD} days and history is "${c.PAYHIST}". Finance Controller approval required (VKM1).`,
+          evidence: [ev('KNKK / FSCM', [`KUNNR ${o.KUNNR} · KLIMK ${inrFull(c.KLIMK)} · SKFOR ${inrFull(c.SKFOR)} (${util.toFixed(0)}%)`, `OVERDUE ${inrFull(c.OVERDUE)} · DPD ${c.DPD} · last payment ${c.LASTPAY}`, `History: ${c.PAYHIST}`]), ev('VBAK', [`VBELN ${o.VBELN} · CMGST B (blocked, dynamic check) · NETWR ${inrFull(o.NETWR)} · VDATU ${o.VDATU}`])],
+          fix: { label: 'Release credit block (VKM1)', steps: [{ fm: 'SD_ORDER_CREDIT_RELEASE', params: { VBELN: o.VBELN } }], effect: 'Sets credit status D (released); order proceeds to delivery. Exposure is updated by FSCM.' },
+          task: risky ? { skill: 'credit', title: `Collections follow-up with ${k.NAME1} — ${inr(c.OVERDUE)} overdue before releasing ${o.VBELN}` } : null });
+      }
+      return out;
+    },
+  },
+
+  /* ================= 7. ACCOUNTING RELEASE ================= */
+  {
+    id: 'SD-60', module: 'accounting', title: 'Invoice not released to accounting', execRole: 'accounting', approval: 'accounting', skill: 'accounting', minutes: 'accounting',
+    async detect() {
+      const out = [];
+      for (const inv of await SAP.read('VBRK', { RFBSK: 'E' })) {
+        const items = await SAP.read('VBRP', { VBELN: inv.VBELN }); const isVkoa = inv.ACC_ERR.includes('VKOA') || inv.ACC_ERR.includes('KI 235'); const isTax = inv.ACC_ERR.startsWith('FF 753');
+        const gapMat = items.map(i => DB.MAKT.find(m => m.MATNR === i.MATNR)).find(m => m && !DB.VKOA.some(v => v.KTGRM === m.KTGRM && v.KVSL1 === 'ERL'));
+        const configOpen = isVkoa ? !!gapMat : isTax ? !DB.TAXCODES_FIXED : false;
+        const steps = []; let label, explain;
+        if (configOpen && isVkoa) { steps.push({ fm: 'VKOA_MAINTAIN', params: { KTGRM: gapMat.KTGRM, KVSL1: 'ERL', SAKNR: '400040' }, input: { name: 'SAKNR', label: `Revenue G/L for account group ${gapMat.KTGRM} / ERL`, default: '400040' }, note: 'configuration — consultant' }); label = 'Maintain VKOA and release to accounting'; explain = `Account determination (VKOA) has no revenue account for material account-assignment group ${gapMat.KTGRM} with account key ERL — material ${gapMat.MATNR} ${gapMat.MAKTX} uses that group. Consultant maintains VKOA (transportable), then Finance releases the invoice.`; }
+        else if (configOpen && isTax) { steps.push({ fm: 'FTXP_MAINTAIN', params: { MWSKZ: 'O1' }, note: 'configuration — consultant' }); label = 'Maintain tax code and release'; explain = `Tax code O1 was determined from the customer tax classification but is not defined in TAXINN. Consultant maintains the tax code (FTXP) or corrects the condition record; then release.`; }
+        else { label = 'Release to accounting'; explain = 'The underlying configuration has been corrected — the invoice can be released (VF02 → Release to accounting).'; }
+        steps.push({ fm: 'RV_INVOICE_RELEASE_TO_ACCOUNTING', params: { VBELN: inv.VBELN } });
+        out.push({ key: `SD-60:${inv.VBELN}`, ref: inv.VBELN, refType: 'invoice', kunnr: inv.KUNRG, vkorg: inv.VKORG, value: inv.NETWR + inv.MWSBK, severity: 'r',
+          title: `Invoice ${inv.VBELN} not posted to FI — ${isVkoa ? 'account determination' : isTax ? 'tax code' : 'posting error'}`, detail: `${custName(inv.KUNRG)} · ${inr(inv.NETWR + inv.MWSBK)} incl. tax · billed ${dmy(inv.FKDAT)} · ${ageDays(inv.FKDAT)} days unposted`,
+          explain, evidence: [ev('VBRK', [`VBELN ${inv.VBELN} · FKART ${inv.FKART} · FKDAT ${inv.FKDAT} · RFBSK ${inv.RFBSK} · BELNR '${inv.BELNR}'`, inv.ACC_ERR]), ev('VBRP', items.map(i => `${i.POSNR} ${i.MATNR} ${matName(i.MATNR)} · KTGRM ${(DB.MAKT.find(m => m.MATNR === i.MATNR) || {}).KTGRM} · ${inrFull(i.NETWR)}`)), ev('VKOA (ERL)', DB.VKOA.filter(v => v.KVSL1 === 'ERL').map(v => `KTGRM ${v.KTGRM} → ${v.SAKNR}`))],
+          task: configOpen ? { skill: 'accounting', title: `${isVkoa ? 'Maintain VKOA for KTGRM ' + gapMat.KTGRM : 'Maintain tax code O1 in TAXINN'} (invoice ${inv.VBELN})` } : null, configOpen,
+          fix: { label, steps, effect: 'FI document is created (RFBSK = C); receivable appears in FBL5N; revenue recognised.' } });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-61', module: 'accounting', title: 'SD–FI amount mismatch', execRole: 'accounting', approval: null, skill: 'accounting', minutes: 'accounting',
+    async detect() {
+      const out = [];
+      for (const inv of await SAP.read('VBRK', { RFBSK: 'C' })) {
+        const fi = await SAP.one('BKPF', { AWKEY: inv.VBELN }); if (!fi) continue; const diff = fi.WRBTR - (inv.NETWR + inv.MWSBK); if (Math.abs(diff) < 1) continue;
+        out.push({ key: `SD-61:${inv.VBELN}`, ref: inv.VBELN, refType: 'invoice', kunnr: inv.KUNRG, vkorg: inv.VKORG, value: Math.abs(diff), severity: 'a',
+          title: `Invoice ${inv.VBELN} differs from FI document ${fi.BELNR} by ${inrFull(diff)}`, detail: `${custName(inv.KUNRG)} · SD ${inrFull(inv.NETWR + inv.MWSBK)} vs FI ${inrFull(fi.WRBTR)}`,
+          explain: 'Billing document total (NETWR + MWSBK) does not equal the accounting document amount. Typical causes: manual FI change, tax rounding, or a cancelled-and-rebilled pair. Needs a finance review — no automatic correction.',
+          evidence: [ev('VBRK', [`VBELN ${inv.VBELN} · NETWR ${inrFull(inv.NETWR)} · MWSBK ${inrFull(inv.MWSBK)} · total ${inrFull(inv.NETWR + inv.MWSBK)}`]), ev('BKPF', [`BELNR ${fi.BELNR} · AWKEY ${fi.AWKEY} · WRBTR ${inrFull(fi.WRBTR)} · BUDAT ${fi.BUDAT}`])],
+          fix: null, task: { skill: 'accounting', title: `Reconcile invoice ${inv.VBELN} with FI ${fi.BELNR} (${inrFull(diff)})` } });
+      }
+      return out;
+    },
+  },
+
+  /* ================= 8. PRICING ================= */
+  {
+    id: 'SD-70', module: 'pricing', title: 'Pricing error — no condition record', execRole: 'pricing', approval: 'pricing', skill: 'pricing', minutes: 'pricing',
+    async detect() {
+      const out = [];
+      for (const o of await SAP.read('VBAK')) {
+        const items = (await SAP.read('VBAP', { VBELN: o.VBELN })).filter(i => !i.NETPR); if (!items.length) continue;
+        const it = items[0]; const recs = DB.A305.filter(a => a.KUNNR === o.KUNNR && a.MATNR === it.MATNR); const expired = recs.find(a => a.DATBI < TODAY); const listRec = DB.A304.find(a => a.MATNR === it.MATNR && a.VKORG === o.VKORG);
+        const proposed = expired ? expired.KBETR : listRec ? listRec.KBETR : 0;
+        out.push({ key: `SD-70:${o.VBELN}`, ref: o.VBELN, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: it.KWMENG * proposed, severity: 'r',
+          title: `Order ${o.VBELN} — item ${it.POSNR} has no price (PR00 missing)`, detail: `${custName(o.KUNNR)} · ${it.MATNR} ${matName(it.MATNR)} · ${n(it.KWMENG)} EA · order value ₹0`,
+          explain: expired ? `Condition analysis: access A305 (customer/material) found record ${expired.KBETR} valid only until ${expired.DATBI} — expired. The customer-specific price was not extended. Proposal: extend the same price from today to ${addDays(TODAY, 140)} and re-run pricing on the order.` : `No customer/material record; list price ${proposed} would apply. Create the customer record or accept list price.`,
+          evidence: [ev('PRCD_ELEMENTS (KONV)', DB.PRCD_ELEMENTS.filter(p => p.KNUMV === o.KNUMV).map(p => `${p.STUNR} ${p.KSCHL} ${p.KBETR} → ${p.STATUS}`)), ev('A305 condition records', recs.map(a => `${a.KSCHL} ${a.KUNNR}/${a.MATNR} ${a.DATAB}–${a.DATBI} ₹${a.KBETR}${a.DATBI < TODAY ? '  (EXPIRED)' : ''}`)), ev('A304 list price', listRec ? [`${listRec.MATNR} ₹${listRec.KBETR}`] : ['none'])],
+          fix: { label: 'Extend price record and re-price order', steps: [{ fm: 'BAPI_PRICES_CONDITIONS', params: { KSCHL: 'PR00', VKORG: o.VKORG, VTWEG: '10', KUNNR: o.KUNNR, MATNR: it.MATNR, DATAB: TODAY, DATBI: addDays(TODAY, 140), KBETR: proposed }, input: { name: 'KBETR', label: 'Price per EA (₹)', default: proposed } }, { fm: 'BAPI_SALESORDER_CHANGE', params: { SALESDOCUMENT: o.VBELN, LOGIC_SWITCH: { PRICING: 'B' } } }], effect: 'Creates the PR00 record (VK11 equivalent) and carries out new pricing (type B) on the order; NETWR is updated.' } });
+      }
+      return out;
+    },
+  },
+  {
+    id: 'SD-71', module: 'pricing', title: 'Manual discount outside usual range', execRole: 'pricing', approval: 'pricing', skill: 'pricing', minutes: 'pricing',
+    async detect() {
+      const out = [];
+      for (const p of await SAP.read('PRCD_ELEMENTS', { KMPRS: 'X' })) {
+        const o = DB.VBAK.find(v => v.KNUMV === p.KNUMV); if (!o) continue; const it = DB.VBAP.find(i => i.VBELN === o.VBELN && i.POSNR === p.KPOSN);
+        const hist = DB.PRICE_HISTORY.find(h => h.KUNNR === o.KUNNR && h.MATNR === it.MATNR); if (!hist || Math.abs(p.KBETR) <= Math.abs(hist.MAX_K007)) continue;
+        out.push({ key: `SD-71:${o.VBELN}:${p.KPOSN}`, ref: o.VBELN, refType: 'order', kunnr: o.KUNNR, vkorg: o.VKORG, value: Math.abs(p.KWERT), severity: 'a',
+          title: `Order ${o.VBELN} — manual ${p.KSCHL} ${p.KBETR}% vs usual ${hist.AVG_K007}% for this customer`, detail: `${custName(o.KUNNR)} · ${it.MATNR} · discount value ${inrFull(Math.abs(p.KWERT))} · last ${hist.N} orders ranged ${hist.MIN_K007}% to ${hist.MAX_K007}%`,
+          explain: `A manually entered discount (KMPRS = X) exceeds the historical range for this customer/material. Either approve it (SD Lead) or reset the item to standard pricing, which re-determines K007 from condition records.`,
+          evidence: [ev('PRCD_ELEMENTS', [`${p.STUNR} ${p.KSCHL} ${p.KBETR}% · KWERT ${inrFull(p.KWERT)} · manual`]), ev('Last 10 orders', [`avg ${hist.AVG_K007}% · min ${hist.MIN_K007}% · max ${hist.MAX_K007}%`])],
+          fix: { label: 'Reset to standard pricing', steps: [{ fm: 'BAPI_SALESORDER_CHANGE', params: { SALESDOCUMENT: o.VBELN, LOGIC_SWITCH: { PRICING: 'B' } } }], effect: 'Removes the manual condition and re-prices the item from condition records.' }, acceptable: true });
+      }
+      return out;
+    },
+  },
+];
+
+const MODULES = {
+  overview:   { label: 'Overview',            icon: 'grid' },
+  tracker:    { label: 'Order tracker',       icon: 'search', sub: 'Where is my order, why is it blocked, what happens next', tile: 'Orders stuck', color: 'r' },
+  billing:    { label: 'Billing',     icon: 'bill',   sub: 'Delivered but not billed — bill the clean ones, route the blocked ones', tile: 'Delivered, not billed', color: 'r' },
+  delivery:   { label: 'Deliveries',    icon: 'truck',  sub: 'Due list not processed and goods issues that failed', tile: 'Due, not shipped', color: 'a' },
+  output:     { label: 'Outputs & IDocs',     icon: 'send',   sub: 'Invoice / order outputs, EDI IDocs and e-invoice rejections', tile: 'Outputs failed', color: 'a' },
+  po:         { label: 'PO inbox',            icon: 'inbox',  sub: 'Customer purchase orders extracted from e-mail and portal exports, ready to become sales orders', tile: 'POs to capture', color: 'b' },
+  credit:     { label: 'Credit blocks',       icon: 'card',   sub: 'Orders held by credit check with the evidence Finance needs to decide', tile: 'On credit block', color: 'r' },
+  accounting: { label: 'Accounting',  icon: 'ledger', sub: 'Invoices that did not post to FI, and SD–FI mismatches', tile: 'Not posted to FI', color: 'r' },
+  pricing:    { label: 'Pricing',             icon: 'tag',    sub: 'Missing condition records and out-of-range manual discounts', tile: 'Pricing issues', color: 'a' },
+  approvals:  { label: 'Approvals',           icon: 'check' },
+  tasks:      { label: 'Team tasks',          icon: 'users' },
+  data:       { label: 'Data',  icon: 'db' },
+};
+
+
+/* =====================================================================
+   ENGINE + UI
+   ===================================================================== */
+const STATE_KEY = 'infrabeat.sd.agent.state.v1';
+let S = { user: null, vkorg: 'all', theme: 'light', tab: 'overview', issues: {}, tasks: [], audit: [], actions: 0, minutes: 0, scannedAt: null, filter: 'open', q: '' };
+let ISSUES = [];            // live merged issue list
+let DRAWER = null;          // {type:'issue'|'order'|'chat', ...}
+const LLM = { endpoint: '' }; // optional: POST {question, context} → {answer}; empty = built-in rule-based copilot
+
+function loadState() { try { const s = JSON.parse(localStorage.getItem(STATE_KEY)); if (s && s.issues) S = { ...S, ...s }; } catch {} }
+function saveState() { try { localStorage.setItem(STATE_KEY, JSON.stringify(S)); } catch {} }
+const nowISO = () => new Date().toISOString();
+const me = () => S.user;
+const userName = (id) => (USERS.find(u => u.id === id) || CONSULTANTS.find(c => c.id === id) || { name: id }).name;
+function audit(what, ref = '') { S.audit.unshift({ at: nowISO(), who: me() ? me().name : 'system', what, ref }); if (S.audit.length > 400) S.audit.length = 400; }
+
+/* ---------- scanner ---------- */
+async function scan() {
+  const drafts = [];
+  for (const c of CATALOG) {
+    const defaults = { catalogId: c.id, catalogTitle: c.title, module: c.module, execRole: c.execRole, approval: c.approval, skill: c.skill, minutes: c.minutes };
+    try { for (const d of await c.detect()) drafts.push({ ...defaults, ...d }); } catch (e) { console.error('detect failed', c.id, e); }
+  }
+  const seen = new Set();
+  for (const d of drafts) {
+    seen.add(d.key);
+    if (!S.issues[d.key]) S.issues[d.key] = { key: d.key, status: 'open', createdAt: nowISO(), history: [{ at: nowISO(), who: 'Scanner', what: 'Detected: ' + d.title }] };
+    const st = S.issues[d.key]; if (st.status === 'resolved' && !st.closedByTool) { st.status = 'open'; st.history.push({ at: nowISO(), who: 'Scanner', what: 'Re-detected: ' + d.title }); }
+    st.snap = { title: d.title, detail: d.detail, module: d.module, ref: d.ref, kunnr: d.kunnr, vkorg: d.vkorg, value: d.value, refType: d.refType };
+  }
+  for (const [k, st] of Object.entries(S.issues)) if (!seen.has(k) && !['resolved', 'rejected'].includes(st.status)) { st.status = 'resolved'; st.resolvedAt = nowISO(); st.reason = st.reason || 'No longer reported by SAP'; st.history.push({ at: nowISO(), who: 'Scanner', what: 'Verified — SAP no longer reports this issue' }); }
+  ISSUES = drafts.map(d => ({ ...d, ...S.issues[d.key] }));
+  for (const [k, st] of Object.entries(S.issues)) if (!seen.has(k)) ISSUES.push({ ...(st.snap || {}), ...st, fix: null, evidence: [], explain: '' });
+  S.scannedAt = nowISO(); saveState();
+}
+const inOrg = (i) => S.vkorg === 'all' || !i.vkorg || i.vkorg === S.vkorg;
+const isLive = (i) => ['open', 'pending', 'approved', 'assigned'].includes(i.status);
+const live = (mod) => ISSUES.filter(i => isLive(i) && inOrg(i) && (!mod || i.module === mod));
+const syncIssues = () => ISSUES.forEach(i => { if (S.issues[i.key]) Object.assign(i, S.issues[i.key]); });
+const issue = (key) => { const i = ISSUES.find(x => x.key === key); if (i && S.issues[key]) Object.assign(i, S.issues[key]); return i; };
+
+/* ---------- permissions ---------- */
+const role = () => ROLES[me().role];
+const canExecute = (i) => role().execute.includes('*') || role().execute.includes(i.execRole) || i.assignee === me().id;
+const canApprove = (i) => !!i.approval && role().approve.includes(i.approval) && i.proposedBy !== me().id;
+const needsApproval = (i) => !!i.approval && i.status !== 'approved';
+const canAssign = () => role().assign || me().role === 'cs';
+const APPROVAL_LABEL = { block: 'SD Lead', billing_block: 'SD Lead', pricing: 'SD Lead', delivery: 'SD Lead', order: 'SD Lead', credit: 'Finance Controller', accounting: 'Finance Controller' };
+
+/* ---------- actions ---------- */
+function hist(i, what) { const st = S.issues[i.key]; st.history.push({ at: nowISO(), who: me().name, what }); }
+function propose(key, note = '') { const i = issue(key); const st = S.issues[key]; st.status = 'pending'; st.proposedBy = me().id; st.proposedAt = nowISO(); st.note = note; hist(i, `Sent for ${APPROVAL_LABEL[i.approval]} approval: ${i.fix.label}${note ? ' — ' + note : ''}`); audit(`Proposed: ${i.fix.label}`, i.ref); saveState(); toast(`Sent to ${APPROVAL_LABEL[i.approval]} for approval`); refresh(); }
+function decide(key, ok, note) { const i = issue(key); if (!canApprove(i)) return toast('You cannot approve this item', true); if (!note) return toast('A review reason is required', true); const st = S.issues[key]; st.status = ok ? 'approved' : 'rejected'; st.approvedBy = me().id; st.decisionNote = note; if (!ok) { st.reason = 'Rejected: ' + note; st.closedByTool = true; } hist(i, `${ok ? 'Approved' : 'Rejected'}: ${note}`); audit(`${ok ? 'Approved' : 'Rejected'}: ${i.fix ? i.fix.label : i.title}`, i.ref); saveState(); toast(ok ? 'Approved — ready to execute' : 'Rejected'); refresh(); }
+function accept(key, note) { const i = issue(key); if (!(role().approve.includes(i.approval) || me().role === 'sdlead' || me().role === 'finance')) return toast('Only an approver can accept an issue as-is', true); const st = S.issues[key]; st.status = 'resolved'; st.resolvedAt = nowISO(); st.reason = 'Accepted as is: ' + note; st.closedByTool = true; hist(i, 'Accepted as is: ' + note); audit('Accepted as is', i.ref); saveState(); toast('Closed'); refresh(); }
+function suggestConsultant(skill) { const load = consultantLoad(); return CONSULTANTS.filter(c => c.skills.includes(skill)).sort((a, b) => load[a.id] - load[b.id])[0] || CONSULTANTS.sort((a, b) => load[a.id] - load[b.id])[0]; }
+function consultantLoad() { const l = { ...BASE_LOAD }; S.tasks.filter(t => t.status === 'open').forEach(t => { l[t.assignee] = (l[t.assignee] || 0) + 1; }); return l; }
+function assign(key, cid, note) { const i = issue(key); const st = S.issues[key]; st.assignee = cid; if (st.status === 'open') st.status = 'assigned'; const title = (i.task && i.task.title) || i.title; S.tasks.unshift({ id: 'T-' + uid(), issueKey: key, title, assignee: cid, by: me().id, at: nowISO(), status: 'open', note }); hist(i, `Assigned to ${userName(cid)}${note ? ' — ' + note : ''}`); audit(`Assigned to ${userName(cid)}: ${title}`, i.ref); saveState(); toast(`Assigned to ${userName(cid)}`); refresh(); }
+function taskDone(tid, note) { const t = S.tasks.find(x => x.id === tid); t.status = 'done'; t.doneAt = nowISO(); t.doneNote = note; const i = issue(t.issueKey); if (i) { hist(i, `Task completed by ${me().name}: ${note || ''}`); if (S.issues[t.issueKey].status === 'assigned') S.issues[t.issueKey].status = 'open'; } audit('Task completed: ' + t.title); saveState(); toast('Task marked done'); refresh(); }
+
+async function execute(key, inputs = {}) {
+  const i = issue(key);
+  if (!i.fix) return toast('No automated fix for this issue', true);
+  if (!canExecute(i)) return toast(`Your role cannot execute ${i.execRole} actions`, true);
+  if (needsApproval(i)) return toast(`${APPROVAL_LABEL[i.approval]} approval is required first`, true);
+  const st = S.issues[key]; let last = null; const done = [];
+  try {
+    for (const step of i.fix.steps) {
+      const params = JSON.parse(JSON.stringify(step.params));
+      for (const inp of [step.input, step.input2].filter(Boolean)) if (inputs[inp.name] !== undefined && inputs[inp.name] !== '') params[inp.name] = isNaN(inputs[inp.name]) ? inputs[inp.name] : Number(inputs[inp.name]);
+      if (step.dynamic === 'po-lines') params.ORDER_ITEMS_IN = params.ORDER_ITEMS_IN.map(l => { if (l.MATERIAL) return l; const m = DB.KNMT.find(x => x.KUNNR === params.ORDER_HEADER_IN.KUNNR && x.KDMAT === l.KDMAT); return { ...l, MATERIAL: m ? m.MATNR : null, TARGET_QTY: l.CASES * (m ? m.UMREZ : 1) }; });
+      if (step.dynamic === 'po-close' && last && last.SALESDOCUMENT) params.SALESDOCUMENT = last.SALESDOCUMENT;
+      last = await SAP.call(step.fm, params); done.push(step.fm);
+      hist(i, `${step.fm} → ${last.RETURN.MESSAGE}`);
+    }
+  } catch (e) { hist(i, `SAP error: ${e.message}`); audit(`Failed: ${i.fix.label} — ${e.message}`, i.ref); saveState(); toast('SAP: ' + e.message, true); refresh(); return; }
+  await scan();
+  const again = issue(key);
+  if (again && isLive(again)) { S.issues[key].status = 'open'; hist(again, `Executed ${done.join(', ')}; SAP now reports: ${again.title}`); audit(`Executed: ${i.fix.label}`, i.ref); S.actions++; S.minutes += (MINUTES_SAVED[i.minutes] || 5); toast(`Done — next step: ${again.fix ? again.fix.label : 'review'}`); }
+  else { const st2 = S.issues[key]; st2.status = 'resolved'; st2.resolvedAt = nowISO(); st2.reason = 'Fixed from here: ' + i.fix.label; st2.closedByTool = true; st2.history.push({ at: nowISO(), who: 'Scanner', what: 'Verified in SAP — issue cleared' }); S.actions++; S.minutes += (MINUTES_SAVED[i.minutes] || 5); audit(`Executed and verified: ${i.fix.label}`, i.ref); toast(`Done and verified in SAP${last && last.SALESDOCUMENT ? ' — order ' + last.SALESDOCUMENT : last && last.DELIVERY ? ' — delivery ' + last.DELIVERY : last && last.SUCCESS ? ' — invoice ' + last.SUCCESS.join(', ') : ''}`); }
+  saveState(); closeDrawer(); refresh();
+}
+async function bulkExecute(keys) { for (const k of keys) { const i = issue(k); if (i && i.fix && !needsApproval(i) && canExecute(i)) await execute(k); } }
+
+/* ---------- rendering ---------- */
+function refresh() { if (!S.user) return renderLogin(); document.documentElement.setAttribute('data-theme', S.theme); render(); }
+function toast(msg, isErr = false) { const t = document.createElement('div'); t.className = 'toast' + (isErr ? ' err' : ''); t.textContent = msg; $('#toasts').appendChild(t); setTimeout(() => t.remove(), 3800); }
+
+function renderLogin() {
+  $('#app').innerHTML = `<div class="login"><div class="box"><div class="logo"><span class="mark">Infra<span>Beat</span></span><div><div class="co">InfraBeat Technologies Pvt. Ltd.</div><div class="sub">SD operations agent</div></div></div>
+  <h1 style="margin-top:18px">Sign in</h1><p class="mute small" style="margin:0 0 6px">Pick a user to see the workspace from that role. Approvals and execution rights follow the role.</p>
+  <div class="users">${USERS.map(u => `<button onclick="signIn('${u.id}')"><span class="avatar">${u.name.split(' ').map(x => x[0]).join('')}</span><span><div class="nm">${u.name}</div><div class="rl">${u.title} · ${ROLES[u.role].approve.length ? 'approves ' + ROLES[u.role].approve.join(', ') : 'no approvals'}</div></span></button>`).join('')}</div>
+  <p class="tiny mute" style="margin:16px 0 0">Demo build on synthetic SAP tables · connects to a live system through the RFC backend (see Data &amp; connections).</p></div></div>`;
+}
+async function signIn(id) { S.user = USERS.find(u => u.id === id); S.tab = 'overview'; audit('Signed in'); saveState(); await scan(); refresh(); }
+function signOut() { audit('Signed out'); S.user = null; saveState(); closeDrawer(); refresh(); }
+
+function render() {
+  syncIssues();
+  const counts = {}; Object.keys(MODULES).forEach(m => counts[m] = live(m).length);
+  counts.approvals = ISSUES.filter(i => i.status === 'pending' && inOrg(i)).length; counts.tasks = S.tasks.filter(t => t.status === 'open').length;
+  const tabs = Object.entries(MODULES).map(([k, m]) => `<button class="tab ${S.tab === k ? 'active' : ''}" onclick="go('${k}')">${ICONS[m.icon]}${m.label}${counts[k] ? `<span class="badge ${['tracker', 'billing', 'credit', 'accounting'].includes(k) && counts[k] ? 'r' : ''}">${counts[k]}</span>` : ''}</button>`).join('');
+  $('#app').innerHTML = `
+  <header class="top"><div class="logo"><span class="mark">Infra<span>Beat</span></span><div><div class="co">InfraBeat Technologies Pvt. Ltd.</div><div class="sub">SD operations agent</div></div></div>
+    <div class="right row">
+      <select class="pill" onchange="S.vkorg=this.value;saveState();refresh()">${['all', ...DB.TVKO.map(o => o.VKORG)].map(v => `<option value="${v}" ${S.vkorg === v ? 'selected' : ''}>${v === 'all' ? 'All sales orgs' : v + ' · ' + orgName(v)}</option>`).join('')}</select>
+      <button class="pill" onclick="S.theme=S.theme==='light'?'dark':'light';saveState();refresh()">${S.theme === 'light' ? ICONS.moon : ICONS.sun}${S.theme === 'light' ? 'Light' : 'Dark'}</button>
+      <button class="pill ask" onclick="openChat()">${ICONS.spark}Ask</button>
+      <button class="pill" onclick="signOut()">${ICONS.out}Sign out</button>
+      <button class="pill" style="border:0" onclick="go('data')"><span class="avatar">${me().name.split(' ').map(x => x[0]).join('')}</span>${me().name.split(' ')[0]} ${me().name.split(' ')[1][0]} ${ICONS.chev}</button>
+    </div></header>
+  <nav class="tabs">${tabs}</nav>
+  <main class="main" id="main"></main>
+  <div class="footer">Synthetic demo data · snapshot ${dmy(TODAY)} 2026 · last SAP scan ${S.scannedAt ? new Date(S.scannedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'} · SAP mode: ${SAP.mode}</div>`;
+  $$('.tab .ic, .tab svg').forEach(s => { s.setAttribute('class', 'ic'); });
+  const page = { overview: renderOverview, approvals: renderApprovals, tasks: renderTasks, data: renderData }[S.tab] || (() => renderModule(S.tab));
+  $('#main').innerHTML = page();
+}
+function go(tab) { S.tab = tab; S.filter = 'open'; S.q = ''; saveState(); render(); window.scrollTo(0, 0); }
+
+/* ---------- overview ---------- */
+function renderOverview() {
+  const mine = live(); const h = new Date().getHours(); const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const unbilled = sumBy(live('billing'), i => i.value); const credit = live('credit'); const outs = live('output'); const pos = live('po'); const acc = live('accounting'); const pend = ISSUES.filter(i => i.status === 'pending' && canApprove(i) && inOrg(i));
+  const biggest = [...pos].sort((a, b) => b.value - a.value)[0];
+  const top3 = [...mine].filter(i => i.severity === 'r').sort((a, b) => b.value - a.value).slice(0, 3);
+  const quick = mine.filter(i => i.fix && !needsApproval(i) && canExecute(i) && !i.fix.steps.some(s => s.input && s.input.default === '')).sort((a, b) => b.value - a.value);
+  const load = consultantLoad();
+  const tilesHTML = ['tracker', 'billing', 'delivery', 'output', 'po', 'credit', 'accounting', 'pricing'].map(m => { const M = MODULES[m]; const L = live(m); const v = sumBy(L, i => i.value); const col = { r: 'var(--red)', a: 'var(--amber)', b: 'var(--blue)', g: 'var(--green)' }[L.length ? M.color : 'g'];
+    const s2 = { tracker: `${L.filter(i => i.catalogId === 'SD-01').length} blocked · ${L.filter(i => i.catalogId === 'SD-03').length} short`, billing: `${L.filter(i => !i.approval).length} can be billed now`, delivery: `${L.filter(i => i.catalogId === 'SD-21').length} waiting for PGI`, output: `${L.filter(i => i.catalogId === 'SD-31').length} IDoc · ${L.filter(i => i.catalogId === 'SD-32').length} IRN`, po: `${L.filter(i => i.severity === 'g').length} ready in one click`, credit: `${L.filter(i => i.recommend === 'release').length} recommended for release`, accounting: `${L.filter(i => i.configOpen).length} need config fix`, pricing: `${L.filter(i => i.catalogId === 'SD-70').length} without price` }[m];
+    return `<div class="tile" onclick="go('${m}')"><span class="ic ${L.length ? M.color : 'g'}">${ICONS[M.icon]}</span><div class="lbl">${M.tile}</div><div class="num">${L.length}</div><div class="s1">${v ? inr(v) : L.length ? '—' : 'nothing open'}</div><div class="s2" style="color:${col}">${L.length ? s2 : 'all clear'}</div>${sparkSVG(m + L.length, col)}</div>`; }).join('');
+  return `
+  <section class="hero"><div>
+    <span class="stamp"><i></i>Checked at ${new Date(S.scannedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · ${CATALOG.length} checks across VBAK, LIKP, VBRK, NAST, EDIDC, KNKK</span>
+    <h1>${greet}, ${me().name.split(' ')[0]}. ${mine.length} SD issue${mine.length === 1 ? '' : 's'} waiting for you${pend.length ? `, ${pend.length} need your approval` : ''}</h1>
+    <p>${inr(unbilled)} is delivered but not billed. ${credit.length} order${credit.length === 1 ? ' sits' : 's sit'} on credit block worth ${inr(sumBy(credit, i => i.value))}. ${outs.length} output${outs.length === 1 ? '' : 's'}/IDocs failed. ${acc.length} invoice${acc.length === 1 ? '' : 's'} did not post to FI. ${pos.length} customer PO${pos.length === 1 ? '' : 's'} waiting to be captured${biggest ? `, the largest worth ${inr(biggest.value)}` : ''}.</p>
+    <div class="top3">${top3.map((i, k) => `<button onclick="openIssue('${i.key}')"><span class="n ${['', 'a', 'b'][k]}">${k + 1}</span><span><div class="t">${esc(i.ref)} · ${inr(i.value)}</div><div class="d">${esc(custName(i.kunnr))} · ${esc(MODULES[i.module].label.toLowerCase())} · ${hoursAgo(i.createdAt)} old</div></span></button>`).join('')}</div>
+  </div><div class="ring">${ringSVG(S.actions)}<div><div class="k">${S.actions} action${S.actions === 1 ? '' : 's'}</div><div class="l">done from here today instead of in SAP · ~${S.minutes} min saved</div><a href="#" onclick="go('data');return false">See everything you did</a></div></div></section>
+  <div class="tiles">${tilesHTML}</div>
+  <div class="grid2">
+    <div class="card"><div class="hd"><span class="ic">${ICONS.check}</span><div><h3>${pend.length ? 'Waiting for your approval' : 'Ready to fix in one click'}</h3><div class="sub">${pend.length ? 'review the evidence, then approve or reject with a reason' : 'no approval needed for these — the fix runs through the standard BAPI and is verified afterwards'}</div></div>${!pend.length && quick.length > 1 ? `<button class="btn p s right" onclick="bulkExecute(${JSON.stringify(quick.slice(0, 6).map(i => i.key)).replace(/"/g, '&quot;')})">Fix all ${Math.min(6, quick.length)}</button>` : ''}</div>
+      ${(pend.length ? pend : quick).length ? `<table class="t"><thead><tr><th>Document</th><th>Issue</th><th class="r">Value</th><th>Waiting</th><th></th></tr></thead><tbody>${(pend.length ? pend : quick).slice(0, 8).map(i => `<tr class="click" onclick="openIssue('${i.key}')"><td><div class="k">${esc(i.ref)}</div><div class="k2">${esc(custName(i.kunnr))}</div></td><td><div>${esc(i.fix ? i.fix.label : i.title)}</div><div class="k2">${esc(MODULES[i.module].label)}${i.proposedBy ? ' · by ' + esc(userName(i.proposedBy)) : ''}</div></td><td class="r b">${i.value ? inr(i.value) : '—'}</td><td><span class="tag ${hoursAgo(i.createdAt).endsWith('d') ? '' : 'a'}">${hoursAgo(i.createdAt)}</span></td><td><button class="btn s ${pend.length ? '' : 'p'}" onclick="event.stopPropagation();${pend.length ? `openIssue('${i.key}')` : `execute('${i.key}')`}">${pend.length ? 'Review' : 'Fix now'}</button></td></tr>`).join('')}</tbody></table>` : `<div class="empty"><b>Nothing waiting</b>All issues need either a decision or a consultant.</div>`}
+    </div>
+    <div class="card"><div class="hd"><span class="ic" style="background:var(--red-bg);color:var(--red)">${ICONS.warn}</span><div><h3>Problems found</h3><div class="sub">most urgent first · ${mine.length} open</div></div></div>
+      <ul class="list">${[...mine].sort((a, b) => (a.severity === 'r' ? 0 : 1) - (b.severity === 'r' ? 0 : 1) || b.value - a.value).slice(0, 6).map((i, k) => `<li style="cursor:pointer" onclick="openIssue('${i.key}')"><span class="n ${i.severity === 'r' ? '' : 'a'}">${k + 1}</span><span class="grow"><div class="t">${esc(i.title)}</div><div class="d">${esc(i.detail)}</div></span>${i.fix ? `<span class="tag ${i.severity === 'r' ? '' : 'a'}" style="flex:none">${needsApproval(i) ? 'needs ' + APPROVAL_LABEL[i.approval].split(' ')[0] : 'I can fix'}</span>` : `<span class="chip" style="flex:none">consultant</span>`}</li>`).join('')}</ul>
+    </div>
+  </div>
+  <div class="grid2" style="grid-template-columns:1fr 1.35fr">
+    <div class="card"><div class="hd"><span class="ic" style="background:var(--blue-bg);color:var(--blue)">${ICONS.users}</span><div><h3>Consultant load</h3><div class="sub">open tasks per consultant · suggestions use skill + load</div></div></div><div class="bd">${CONSULTANTS.map(c => `<div style="margin-bottom:10px"><div class="row"><b>${c.name}</b><span class="mute small">${c.skills.join(', ')}</span><span class="right b">${load[c.id]} / ${c.capacity}</span></div><div class="bar"><i class="${load[c.id] >= c.capacity ? '' : load[c.id] >= c.capacity * .7 ? 'a' : 'b'}" style="width:${Math.min(100, load[c.id] / c.capacity * 100)}%"></i></div></div>`).join('')}</div></div>
+    <div class="card"><div class="hd"><span class="ic" style="background:var(--green-bg);color:var(--green)">${ICONS.clock}</span><div><h3>Done from here</h3><div class="sub">actions executed through the tool and verified in SAP</div></div></div><div class="bd">${S.audit.filter(a => /Executed|Approved|Assigned|Rejected|Accepted/.test(a.what)).slice(0, 6).map(a => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line2)"><span class="mute small" style="width:70px">${hoursAgo(a.at)}</span><span class="grow">${esc(a.what)}${a.ref ? ` <span class="chip">${esc(a.ref)}</span>` : ''}</span><span class="mute small">${esc(a.who)}</span></div>`).join('') || '<div class="empty"><b>Nothing yet</b>Fix an issue and it shows here with the SAP result.</div>'}</div></div>
+  </div>`;
+}
+function ringSVG(k) { const pct = Math.min(100, k * 10); const r = 38, c = 2 * Math.PI * r; return `<svg viewBox="0 0 92 92"><circle cx="46" cy="46" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="7"/><circle cx="46" cy="46" r="${r}" fill="none" stroke="#4dd6a8" stroke-width="7" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - pct / 100)}" stroke-linecap="round" transform="rotate(-90 46 46)"/><text x="46" y="50" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">${S.minutes} min</text></svg>`; }
+
+/* ---------- module pages ---------- */
+const FILTERS = [['open', 'Open'], ['pending', 'Pending approval'], ['assigned', 'Assigned'], ['resolved', 'Resolved'], ['all', 'All']];
+function listFor(mod) { let L = ISSUES.filter(i => i.module === mod && inOrg(i)); if (S.filter === 'open') L = L.filter(i => isLive(i)); else if (S.filter !== 'all') L = L.filter(i => i.status === S.filter || (S.filter === 'resolved' && i.status === 'rejected')); if (S.q) { const q = S.q.toLowerCase(); L = L.filter(i => [i.ref, i.title, i.detail, custName(i.kunnr)].join(' ').toLowerCase().includes(q)); } return L.sort((a, b) => (a.severity === 'r' ? 0 : 1) - (b.severity === 'r' ? 0 : 1) || b.value - a.value); }
+function signal(i) {
+  switch (i.module) {
+    case 'tracker': return i.catalogId === 'SD-01' ? `<span class="chip r">Delivery block</span>` : i.catalogId === 'SD-02' ? `<span class="chip a">Incomplete</span>` : `<span class="chip a">Qty short</span>`;
+    case 'billing': return i.approval ? `<span class="chip r">Billing block</span>` : `<span class="chip g">Clean — bill now</span>`;
+    case 'delivery': return i.catalogId === 'SD-21' ? (i.severity === 'r' ? `<span class="chip r">PGI failed</span>` : `<span class="chip a">PGI pending</span>`) : (i.approval ? `<span class="chip a">Partial</span>` : `<span class="chip g">Create delivery</span>`);
+    case 'output': return `<span class="chip ${i.catalogId === 'SD-30' ? 'a' : 'r'}">${{ 'SD-30': 'Output', 'SD-31': 'IDoc', 'SD-32': 'e-Invoice' }[i.catalogId]}</span>`;
+    case 'po': return i.severity === 'g' ? `<span class="chip g">Ready</span>` : i.severity === 'a' ? `<span class="chip a">Mapping needed</span>` : `<span class="chip r">Duplicate</span>`;
+    case 'credit': return i.recommend === 'release' ? `<span class="chip g">Recommend release</span>` : `<span class="chip r">Recommend hold</span>`;
+    case 'accounting': return i.catalogId === 'SD-61' ? `<span class="chip a">SD–FI mismatch</span>` : i.configOpen ? `<span class="chip r">Config fix</span>` : `<span class="chip g">Ready to release</span>`;
+    case 'pricing': return i.catalogId === 'SD-70' ? `<span class="chip r">No price</span>` : `<span class="chip a">Manual discount</span>`;
+  } return '';
+}
+function statusChip(i) { return { open: '<span class="chip">Open</span>', pending: '<span class="chip a">Pending approval</span>', approved: '<span class="chip b">Approved</span>', assigned: `<span class="chip p">Assigned · ${esc(userName(i.assignee || ''))}</span>`, resolved: '<span class="chip g">Resolved</span>', rejected: '<span class="chip r">Rejected</span>' }[i.status] || ''; }
+function actionButton(i) {
+  if (!isLive(i)) return '';
+  if (i.status === 'pending') return canApprove(i) ? `<button class="btn s p" onclick="event.stopPropagation();openIssue('${i.key}')">Review</button>` : `<span class="mute small">with ${APPROVAL_LABEL[i.approval]}</span>`;
+  if (!i.fix) return `<button class="btn s" onclick="event.stopPropagation();openIssue('${i.key}')">${i.assignee ? 'Open' : 'Assign'}</button>`;
+  if (needsApproval(i)) return `<button class="btn s" onclick="event.stopPropagation();openIssue('${i.key}')">Propose</button>`;
+  const needsInput = i.fix.steps.some(s => s.input && s.input.default === '');
+  return canExecute(i) ? `<button class="btn s p" onclick="event.stopPropagation();${needsInput ? `openIssue('${i.key}')` : `execute('${i.key}')`}">${esc(i.fix.label.split(' and ')[0])}</button>` : `<button class="btn s" onclick="event.stopPropagation();openIssue('${i.key}')">Open</button>`;
+}
+function renderModule(mod) {
+  const M = MODULES[mod]; const L = listFor(mod); const all = ISSUES.filter(i => i.module === mod && inOrg(i));
+  const quick = L.filter(i => i.fix && !needsApproval(i) && canExecute(i) && !i.fix.steps.some(s => s.input && s.input.default === ''));
+  const extra = mod === 'tracker' ? `<div class="card" style="margin-bottom:14px"><div class="bd row wrap"><div class="search grow">${ICONS.search}<input id="trk" placeholder="Order, delivery, invoice, customer PO or customer name — e.g. 50001291 or Aster" onkeydown="if(event.key==='Enter')track()"></div><button class="btn p" onclick="track()">Track</button><span class="mute small">Answers "where is my order" with the full document flow — VBAK → LIKP → VBRK → FI — and explains any block in plain words.</span></div></div>` : mod === 'credit' ? renderCreditPanel() : '';
+  return `<div class="ph"><div><h2>${M.label}</h2><div class="sub">${M.sub}</div></div><div class="right toolbar"><div class="search">${ICONS.search}<input placeholder="Filter…" value="${esc(S.q)}" oninput="S.q=this.value;render();const e=document.querySelector('.search input');e.focus();e.setSelectionRange(e.value.length,e.value.length)"></div><div class="seg">${FILTERS.map(([k, l]) => `<button class="${S.filter === k ? 'on' : ''}" onclick="S.filter='${k}';render()">${l}${k === 'open' ? ` (${all.filter(isLive).length})` : ''}</button>`).join('')}</div>${quick.length > 1 ? `<button class="btn p" onclick="bulkExecute(${JSON.stringify(quick.map(i => i.key)).replace(/"/g, '&quot;')})">Fix all ${quick.length} clean</button>` : ''}</div></div>
+  ${extra}
+  <div class="card">${L.length ? `<table class="t"><thead><tr><th>Document</th><th>Signal</th><th>Issue</th><th class="r">Value</th><th>Age</th><th>Status</th><th></th></tr></thead><tbody>${L.map(i => `<tr class="click" onclick="openIssue('${i.key}')"><td><div class="k">${esc(i.ref)}</div><div class="k2">${esc(custName(i.kunnr))}${i.order ? ' · order ' + esc(i.order) : ''}</div></td><td>${signal(i)}</td><td><div>${esc(i.title)}</div><div class="k2">${esc(i.detail)}</div></td><td class="r b">${i.value ? inr(i.value) : '—'}</td><td class="mute small">${hoursAgo(i.createdAt)}</td><td>${statusChip(i)}</td><td>${actionButton(i)}</td></tr>`).join('')}</tbody></table>` : `<div class="empty"><b>Nothing ${S.filter === 'open' ? 'open' : 'here'}</b>${S.filter === 'open' ? 'SAP reports no ' + M.label.toLowerCase() + ' issues for the selected sales organisations.' : 'Try another filter.'}</div>`}</div>`;
+}
+function renderCreditPanel() { const rows = DB.KNKK.filter(c => S.vkorg === 'all' || (DB.KNVV.find(k => k.KUNNR === c.KUNNR) || {}).VKORG === S.vkorg); return `<div class="card" style="margin-bottom:14px"><div class="hd"><span class="ic" style="background:var(--blue-bg);color:var(--blue)">${ICONS.card}</span><div><h3>Credit exposure by customer</h3><div class="sub">KNKK / FSCM — limit utilisation and overdue; blocked orders are listed below</div></div></div><div class="bd" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px 24px">${rows.map(c => { const u = c.SKFOR / c.KLIMK * 100; return `<div><div class="row"><b>${esc(custName(c.KUNNR))}</b><span class="right small ${u > 100 ? 'red b' : u > 85 ? 'amber b' : 'mute'}">${u.toFixed(0)}%</span></div><div class="bar"><i class="${u > 100 ? '' : u > 85 ? 'a' : 'g'}" style="width:${Math.min(100, u)}%"></i></div><div class="tiny mute">exposure ${inr(c.SKFOR)} of ${inr(c.KLIMK)}${c.OVERDUE ? ` · <span class="red">overdue ${inr(c.OVERDUE)} (${c.DPD} d)</span>` : ' · nothing overdue'}</div></div>`; }).join('')}</div></div>`; }
+
+/* ---------- approvals / tasks / data ---------- */
+function renderApprovals() {
+  const pend = ISSUES.filter(i => i.status === 'pending' && inOrg(i)); const mine = pend.filter(canApprove); const done = ISSUES.filter(i => ['approved', 'rejected'].includes(i.status) || (i.status === 'resolved' && i.approvedBy)).filter(inOrg);
+  const tbl = (L, empty) => L.length ? `<table class="t"><thead><tr><th>Document</th><th>Proposed action</th><th>Module</th><th class="r">Value</th><th>Proposed by</th><th>Status</th><th></th></tr></thead><tbody>${L.map(i => `<tr class="click" onclick="openIssue('${i.key}')"><td><div class="k">${esc(i.ref)}</div><div class="k2">${esc(custName(i.kunnr))}</div></td><td><div>${esc(i.fix ? i.fix.label : i.title)}</div><div class="k2">${esc(i.title)}</div></td><td>${esc(MODULES[i.module].label)}</td><td class="r b">${i.value ? inr(i.value) : '—'}</td><td>${esc(userName(i.proposedBy || ''))}<div class="k2">${i.proposedAt ? hoursAgo(i.proposedAt) + ' ago' : ''}</div></td><td>${statusChip(i)}</td><td>${canApprove(i) && i.status === 'pending' ? `<button class="btn s p" onclick="event.stopPropagation();openIssue('${i.key}')">Review</button>` : ''}</td></tr>`).join('')}</tbody></table>` : `<div class="empty"><b>${empty}</b></div>`;
+  return `<div class="ph"><div><h2>Approvals</h2><div class="sub">Maker–checker: the person who proposes cannot approve. Every decision needs a reason and is written to the audit log.</div></div></div>
+  <div class="card"><div class="hd"><h3>Waiting for ${me().name.split(' ')[0]}</h3><span class="badge ${mine.length ? 'r' : ''}">${mine.length}</span></div>${tbl(mine, 'Nothing for you to approve')}</div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>All pending</h3><span class="badge">${pend.length}</span></div>${tbl(pend, 'No pending approvals')}</div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Decided</h3><span class="badge">${done.length}</span></div>${tbl(done, 'No decisions yet')}</div>`;
+}
+function renderTasks() {
+  const load = consultantLoad(); const open = S.tasks.filter(t => t.status === 'open'); const done = S.tasks.filter(t => t.status === 'done');
+  const unassigned = live().filter(i => !i.fix && !i.assignee);
+  const tbl = (L) => L.length ? `<table class="t"><thead><tr><th>Task</th><th>Consultant</th><th>Raised by</th><th>When</th><th>Status</th><th></th></tr></thead><tbody>${L.map(t => { const i = issue(t.issueKey); return `<tr class="click" onclick="openIssue('${t.issueKey}')"><td><div class="k">${esc(t.title)}</div><div class="k2">${i ? esc(i.ref) + ' · ' + esc(custName(i.kunnr)) : ''}${t.note ? ' · ' + esc(t.note) : ''}</div></td><td>${esc(userName(t.assignee))}</td><td>${esc(userName(t.by))}</td><td class="mute small">${hoursAgo(t.at)} ago</td><td>${t.status === 'open' ? '<span class="chip a">Open</span>' : `<span class="chip g">Done</span><div class="k2">${esc(t.doneNote || '')}</div>`}</td><td>${t.status === 'open' && (me().id === t.assignee || me().role === 'sdlead') ? `<button class="btn s" onclick="event.stopPropagation();askNote('Mark task done','What was done?',v=>taskDone('${t.id}',v))">Mark done</button>` : ''}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty"><b>No tasks</b></div>';
+  return `<div class="ph"><div><h2>Team tasks</h2><div class="sub">Issues that need a consultant — assigned by skill and current load, tracked to closure</div></div></div>
+  <div class="grid3" style="margin-top:0">${CONSULTANTS.map(c => `<div class="card"><div class="bd"><div class="row"><span class="avatar">${c.name.split(' ').map(x => x[0]).join('')}</span><div><b>${c.name}</b><div class="small mute">${c.skills.join(' · ')}</div></div><span class="right b" style="font-size:18px">${load[c.id]}<span class="mute small"> / ${c.capacity}</span></span></div><div class="bar"><i class="${load[c.id] >= c.capacity ? '' : load[c.id] >= c.capacity * .7 ? 'a' : 'b'}" style="width:${Math.min(100, load[c.id] / c.capacity * 100)}%"></i></div><div class="tiny mute">${BASE_LOAD[c.id]} from other tickets · ${load[c.id] - BASE_LOAD[c.id]} from this tool</div></div></div>`).join('')}</div>
+  ${unassigned.length ? `<div class="card" style="margin-top:14px"><div class="hd"><span class="ic">${ICONS.warn}</span><div><h3>Needs a consultant, not yet assigned</h3><div class="sub">no automated fix exists — assign with the suggested consultant</div></div></div><table class="t"><tbody>${unassigned.map(i => { const s = suggestConsultant(i.skill); return `<tr class="click" onclick="openIssue('${i.key}')"><td><div class="k">${esc(i.ref)}</div><div class="k2">${esc(custName(i.kunnr))}</div></td><td>${esc(i.title)}</td><td class="mute small">suggest ${esc(s.name)} (${i.skill}, load ${load[s.id]})</td><td><button class="btn s p" onclick="event.stopPropagation();assign('${i.key}','${s.id}','auto-suggested by skill and load')">Assign to ${esc(s.name.split(' ')[0])}</button></td></tr>`; }).join('')}</tbody></table></div>` : ''}
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Open tasks</h3><span class="badge a">${open.length}</span></div>${tbl(open)}</div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Completed</h3><span class="badge">${done.length}</span></div>${tbl(done)}</div>`;
+}
+function renderData() {
+  const counts = CATALOG.map(c => ({ c, n: ISSUES.filter(i => i.catalogId === c.id && isLive(i)).length }));
+  return `<div class="ph"><div><h2>Data &amp; connections</h2><div class="sub">How the tool reads and writes SAP, what it checked, and everything that was done from here</div></div></div>
+  <div class="grid2" style="margin-top:0;grid-template-columns:1fr 1fr">
+    <div class="card"><div class="hd"><span class="ic" style="background:var(--blue-bg);color:var(--blue)">${ICONS.db}</span><div><h3>SAP connection</h3><div class="sub">same adapter, two modes</div></div></div><div class="bd">
+      <div class="seg"><button class="${SAP.mode === 'mock' ? 'on' : ''}" onclick="SAP.mode='mock';toast('Mock mode — embedded tables');render()">Embedded demo tables</button><button class="${SAP.mode === 'rfc' ? 'on' : ''}" onclick="SAP.mode='rfc';toast('RFC mode — calls the Python backend at '+SAP.endpoint);render()">Live SAP via RFC backend</button></div>
+      <div class="row" style="margin-top:10px"><span class="mute small" style="width:70px">Endpoint</span><input class="grow mono" value="${esc(SAP.endpoint)}" onchange="SAP.endpoint=this.value"></div>
+      <div class="note" style="margin-top:12px">In RFC mode every <span class="mono">SAP.read(table, where)</span> becomes <span class="mono">RFC_READ_TABLE</span> (or a Z-RFC join) and every <span class="mono">SAP.call(fm, params)</span> becomes a <span class="mono">pyrfc</span> call to the same function module, followed by <span class="mono">BAPI_TRANSACTION_COMMIT</span>. The backend skeleton is in <span class="mono">backend/</span>. The UI code does not change.</div>
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="scan().then(()=>{toast('Re-scanned');render()})">Re-run all checks now</button><button class="btn" onclick="if(confirm('Reset the demo tables and all workflow state?')){resetDB();S={...S,issues:{},tasks:[],audit:[],actions:0,minutes:0};saveState();scan().then(()=>{toast('Demo reset');render()})}">Reset demo data</button></div>
+      <div class="row" style="margin-top:10px"><span class="mute small" style="width:70px">Copilot LLM</span><input class="grow mono" placeholder="optional: https://…/answer (POST {question, context})" value="${esc(LLM.endpoint)}" onchange="LLM.endpoint=this.value"></div>
+    </div></div>
+    <div class="card"><div class="hd"><h3>Checks in the catalog</h3><div class="sub">${CATALOG.length} detections · last run ${new Date(S.scannedAt).toLocaleTimeString('en-IN')}</div></div><table class="t"><thead><tr><th>ID</th><th>Check</th><th>Fix via</th><th>Approval</th><th class="r">Open</th></tr></thead><tbody>${counts.map(({ c, n }) => `<tr><td class="mono">${c.id}</td><td>${esc(c.title)}<div class="k2">${esc(MODULES[c.module].label)}</div></td><td class="small">${esc(c.execRole)}</td><td class="small">${c.approval ? APPROVAL_LABEL[c.approval] : '—'}</td><td class="r b">${n}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Audit log</h3><div class="sub">who did what, with the SAP result</div></div>${S.audit.length ? `<table class="t"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Ref</th></tr></thead><tbody>${S.audit.slice(0, 60).map(a => `<tr><td class="mute small">${new Date(a.at).toLocaleString('en-IN')}</td><td>${esc(a.who)}</td><td>${esc(a.what)}</td><td class="mono">${esc(a.ref)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty"><b>Empty</b></div>'}</div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>SAP call log</h3><div class="sub">last ${Math.min(60, SAP.log.length)} reads and function-module calls</div></div>${SAP.log.length ? `<table class="t"><thead><tr><th>Kind</th><th>Name</th><th>Params</th><th>Result</th><th class="r">ms</th></tr></thead><tbody>${SAP.log.slice(0, 60).map(l => `<tr><td><span class="chip ${l.kind === 'CALL' ? 'b' : ''}">${l.kind}</span></td><td class="mono">${esc(l.name)}</td><td class="mono tiny">${esc(l.params)}</td><td class="small">${esc(l.result)}</td><td class="r mute small">${l.ms}</td></tr>`).join('')}</tbody></table>` : ''}</div>`;
+}
+
+/* ---------- drawer: issue ---------- */
+function openDrawer(html, footer = '') { $('#drawer').innerHTML = html + (footer ? `<div class="df">${footer}</div>` : ''); $('#drawer').classList.add('open'); $('#scrim').classList.add('on'); }
+function closeDrawer() { $('#drawer').classList.remove('open'); $('#scrim').classList.remove('on'); DRAWER = null; }
+function openIssue(key) {
+  const i = issue(key); if (!i) return; DRAWER = { type: 'issue', key };
+  const head = `<div class="dh"><div class="grow"><div class="row small" style="margin-bottom:4px"><span class="chip">${esc(MODULES[i.module].label)}</span>${signal(i)}${statusChip(i)}<span class="mute">${esc(i.catalogId)}</span></div><h3>${esc(i.title)}</h3><div class="mute small">${esc(i.detail)}</div></div><button class="btn s" onclick="closeDrawer()">${ICONS.x}</button></div>`;
+  const inputs = i.fix ? i.fix.steps.flatMap(s => [s.input, s.input2].filter(Boolean)) : [];
+  const fixCard = i.fix ? `<div class="card" style="margin-top:12px"><div class="hd"><span class="ic" style="background:var(--green-bg);color:var(--green)">${ICONS.spark}</span><div><h3>Proposed action — ${esc(i.fix.label)}</h3><div class="sub">${esc(i.fix.effect || '')}</div></div></div><div class="bd">
+      <ol style="margin:0 0 8px 18px;padding:0" class="small">${i.fix.steps.map(s => `<li><span class="mono">${esc(s.fm)}</span>${s.note ? ` <span class="mute">— ${esc(s.note)}</span>` : ''}</li>`).join('')}<li><span class="mono">BAPI_TRANSACTION_COMMIT</span> <span class="mute">— then re-read and verify</span></li></ol>
+      ${inputs.length ? `<div class="stack" style="margin-top:8px">${inputs.map(inp => `<label class="small"><div class="mute">${esc(inp.label)}</div><input class="mono" style="width:100%" data-inp="${esc(inp.name)}" value="${esc(inp.default)}" placeholder="${inp.default === '' ? 'required' : ''}"></label>`).join('')}</div>` : ''}
+      ${needsApproval(i) ? `<div class="note a" style="margin:10px 0 0">Needs ${APPROVAL_LABEL[i.approval]} approval before it runs${i.status === 'pending' ? ` — proposed by ${esc(userName(i.proposedBy))}${i.note ? ': ' + esc(i.note) : ''}` : ''}.</div>` : i.status === 'approved' ? `<div class="note g" style="margin:10px 0 0">Approved by ${esc(userName(i.approvedBy))}: ${esc(i.decisionNote || '')}. Ready to execute.</div>` : ''}
+    </div></div>` : `<div class="note a" style="margin-top:12px"><b>No automated fix.</b> This needs a person — ${i.task ? esc(i.task.title) : 'assign to a consultant'}. Suggested: ${esc(suggestConsultant(i.skill).name)} (${esc(i.skill)}).</div>`;
+  const body = `<div class="db">
+    ${i.explain ? `<div class="note">${esc(i.explain)}</div>` : ''}
+    ${i.refType === 'order' || i.order ? `<button class="btn link small" onclick="openOrder('${i.order || i.ref}')">Open order ${esc(i.order || i.ref)} — full document flow ${ICONS.arrow}</button>` : ''}
+    ${(i.evidence || []).map(e => `<div class="ev"><div class="h">${esc(e.h)}</div><pre>${esc(e.text)}</pre></div>`).join('')}
+    ${fixCard}
+    ${i.assignee ? `<div class="note" style="margin-top:12px">Assigned to <b>${esc(userName(i.assignee))}</b>${i.task ? ' — ' + esc(i.task.title) : ''}</div>` : ''}
+    <h4 style="margin:16px 0 6px;font-size:13px">History</h4><ul class="timeline">${(i.history || []).slice().reverse().map(h => `<li><div>${esc(h.what)}</div><div class="w">${esc(h.who)} · ${new Date(h.at).toLocaleString('en-IN')}</div></li>`).join('')}</ul>
+  </div>`;
+  const btns = [];
+  if (isLive(i)) {
+    if (i.fix) {
+      if (i.status === 'pending') { if (canApprove(i)) btns.push(`<button class="btn g" onclick="askNote('Approve','Review reason (required)',v=>decide('${key}',true,v))">Approve</button><button class="btn d" onclick="askNote('Reject','Reason for rejection (required)',v=>decide('${key}',false,v))">Reject</button>`); else btns.push(`<span class="mute small">Waiting for ${APPROVAL_LABEL[i.approval]}${i.proposedBy === me().id ? ' — you proposed this, so you cannot approve it' : ''}</span>`); }
+      else if (needsApproval(i)) btns.push(`<button class="btn p" onclick="askNote('Send for approval','Note for the approver (optional)',v=>propose('${key}',v),false)">Send to ${APPROVAL_LABEL[i.approval]}</button>`);
+      else if (canExecute(i)) btns.push(`<button class="btn p" onclick="executeFromDrawer('${key}')">${esc(i.fix.label)}</button>`);
+      else btns.push(`<span class="mute small">Your role (${esc(role().title)}) cannot execute ${esc(i.execRole)} actions — assign or ask ${esc(suggestConsultant(i.skill).name)}</span>`);
+      if (i.acceptable && (me().role === 'sdlead')) btns.push(`<button class="btn" onclick="askNote('Accept as is','Why is this acceptable?',v=>accept('${key}',v))">Accept as is</button>`);
+    } else if (me().role === 'sdlead' || me().role === 'finance') btns.push(`<button class="btn" onclick="askNote('Close','Reason for closing without action',v=>accept('${key}',v))">Close as reviewed</button>`);
+    if (!i.assignee) { const s = suggestConsultant(i.skill); btns.push(`<button class="btn" onclick="assignDialog('${key}')">Assign to consultant <span class="mute">(suggest ${esc(s.name.split(' ')[0])})</span></button>`); }
+  } else btns.push(`<span class="mute small">${esc(i.reason || 'Closed')}</span>`);
+  openDrawer(head + body, btns.join(''));
+}
+function executeFromDrawer(key) { const inputs = {}; $$('#drawer [data-inp]').forEach(e => inputs[e.dataset.inp] = e.value.trim()); const i = issue(key); const missing = i.fix.steps.flatMap(s => [s.input, s.input2].filter(Boolean)).find(inp => inp.default === '' && !inputs[inp.name]); if (missing) return toast(`${missing.label} is required`, true); execute(key, inputs); }
+function assignDialog(key) { const i = issue(key); const load = consultantLoad(); const s = suggestConsultant(i.skill); modal('Assign to consultant', `<p class="small mute" style="margin:0 0 10px">Suggested by skill <b>${esc(i.skill)}</b> and current load.</p><div class="users">${CONSULTANTS.map(c => `<button onclick="assign('${key}','${c.id}',document.getElementById('asgNote').value);closeModal()"><span class="avatar">${c.name.split(' ').map(x => x[0]).join('')}</span><span class="grow"><div class="nm">${c.name} ${c.id === s.id ? '<span class="chip g">suggested</span>' : ''}</div><div class="rl">${c.skills.join(', ')} · load ${load[c.id]} / ${c.capacity}</div></span></button>`).join('')}</div><label class="small" style="display:block;margin-top:10px"><div class="mute">Note</div><input id="asgNote" style="width:100%" placeholder="context for the consultant"></label>`, ''); }
+
+/* ---------- drawer: order 360 ---------- */
+function track() { const q = ($('#trk').value || '').trim(); if (!q) return; const up = q.toUpperCase(); let o = DB.VBAK.find(v => v.VBELN === q || v.BSTNK.toUpperCase() === up); if (!o) { const d = DB.LIKP.find(x => x.VBELN === q); if (d) o = DB.VBAK.find(v => v.VBELN === (DB.LIPS.find(l => l.VBELN === d.VBELN) || {}).VGBEL); } if (!o) { const inv = DB.VBRP.find(x => x.VBELN === q); if (inv) o = DB.VBAK.find(v => v.VBELN === inv.AUBEL); } if (!o) { const k = DB.KNA1.find(c => c.NAME1.toLowerCase().includes(q.toLowerCase())); if (k) return openCustomer(k.KUNNR); } if (!o) return toast('Nothing found for ' + q, true); openOrder(o.VBELN); }
+function orderFlow(o) {
+  const items = DB.VBAP.filter(i => i.VBELN === o.VBELN); const eps = DB.VBEP.filter(e => e.VBELN === o.VBELN); const conf = sumBy(eps, e => e.BMENG), ord = sumBy(eps, e => e.WMENG);
+  const dl = DB.LIPS.filter(l => l.VGBEL === o.VBELN); const dlv = [...new Set(dl.map(l => l.VBELN))].map(v => DB.LIKP.find(h => h.VBELN === v)); const inv = [...new Set(DB.VBRP.filter(b => b.AUBEL === o.VBELN).map(b => b.VBELN))].map(v => DB.VBRK.find(h => h.VBELN === v));
+  const blocks = []; if (o.LIFSK) blocks.push(`delivery block ${o.LIFSK} (${blockText('TVLST', o.LIFSK, 'LIFSP')})`); if (o.FAKSK) blocks.push(`billing block ${o.FAKSK} (${blockText('TVFST', o.FAKSK, 'FAKSP')})`); if (o.CMGST === 'B') blocks.push('credit block (dynamic credit check)'); if (DB.VBUV.some(v => v.VBELN === o.VBELN)) blocks.push('incomplete (' + DB.VBUV.filter(v => v.VBELN === o.VBELN).map(v => v.FDTXT).join(', ') + ')');
+  const st = [
+    { l: 'Order', v: o.VBELN, m: `${dmy(o.ERDAT)} · ${inr(o.NETWR)}`, c: blocks.length ? 'bad' : 'ok' },
+    { l: 'Confirmed', v: `${n(conf)} / ${n(ord)} EA`, m: conf < ord ? `${n(ord - conf)} short` : 'fully confirmed', c: conf === 0 ? 'bad' : conf < ord ? 'warn' : 'ok' },
+    { l: 'Delivery', v: dlv.length ? dlv.map(d => d.VBELN).join(', ') : '—', m: dlv.length ? dmy(dlv[0].LFDAT) : (blocks.length ? 'blocked' : 'not created'), c: dlv.length ? 'ok' : blocks.length ? 'bad' : 'todo' },
+    { l: 'Goods issue', v: dlv.length ? (dlv.every(d => d.WBSTK === 'C') ? 'posted' : 'pending') : '—', m: dlv.length ? (dlv[0].WADAT_IST ? dmy(dlv[0].WADAT_IST) : dlv[0].PGI_ERR ? 'failed' : 'picked') : '', c: !dlv.length ? 'todo' : dlv.every(d => d.WBSTK === 'C') ? 'ok' : dlv.some(d => d.PGI_ERR) ? 'bad' : 'warn' },
+    { l: 'Invoice', v: inv.length ? inv.map(i => i.VBELN).join(', ') : '—', m: inv.length ? dmy(inv[0].FKDAT) + ' · ' + inr(sumBy(inv, i => i.NETWR)) : dlv.some(d => d.WBSTK === 'C') ? (o.FAKSK ? 'billing blocked' : 'due for billing') : '', c: inv.length ? 'ok' : dlv.some(d => d.WBSTK === 'C') ? (o.FAKSK ? 'bad' : 'warn') : 'todo' },
+    { l: 'Accounting', v: inv.length ? (inv.every(i => i.RFBSK === 'C') ? inv.map(i => i.BELNR).join(', ') : 'not posted') : '—', m: inv.length ? (inv.every(i => i.RFBSK === 'C') ? 'FI document' : 'posting error') : '', c: !inv.length ? 'todo' : inv.every(i => i.RFBSK === 'C') ? 'ok' : 'bad' },
+    { l: 'Output / IRN', v: inv.length ? ((DB.NAST.find(x => x.OBJKY === inv[0].VBELN) || {}).VSTAT === '1' ? 'sent' : 'failed') : (DB.NAST.find(x => x.OBJKY === o.VBELN && x.VSTAT === '2') ? 'order conf. failed' : '—'), m: inv.length ? 'IRN ' + ((DB.EINV.find(e => e.VBELN === inv[0].VBELN) || {}).IRN_STATUS || '—').toLowerCase() : '', c: inv.length ? ((DB.NAST.find(x => x.OBJKY === inv[0].VBELN) || {}).VSTAT === '1' && (DB.EINV.find(e => e.VBELN === inv[0].VBELN) || {}).IRN_STATUS !== 'REJECTED' ? 'ok' : 'bad') : DB.NAST.find(x => x.OBJKY === o.VBELN && x.VSTAT === '2') ? 'bad' : 'todo' },
+  ];
+  return { items, eps, conf, ord, dlv, inv, blocks, st };
+}
+function relatedToOrder(i, vbeln) { if (i.ref === vbeln || i.order === vbeln) return true; const dl = DB.LIPS.filter(l => l.VGBEL === vbeln).map(l => l.VBELN); const inv = DB.VBRP.filter(b => b.AUBEL === vbeln).map(b => b.VBELN); const idoc = DB.EDIDC.filter(d => inv.includes(d.OBJKY)).map(d => d.DOCNUM); return [...dl, ...inv, ...idoc].includes(i.ref); }
+function orderNarrative(o) {
+  const f = orderFlow(o); const k = custName(o.KUNNR); let s = `Order ${o.VBELN} for ${k} (${inr(o.NETWR)}, customer PO ${o.BSTNK}) was created on ${dmy(o.ERDAT)} for delivery by ${dmy(o.VDATU)}. `;
+  if (f.blocks.length) s += `It is currently held: ${f.blocks.join('; ')}. `;
+  if (f.conf < f.ord) s += `Only ${n(f.conf)} of ${n(f.ord)} EA are confirmed. `;
+  if (!f.dlv.length) s += f.blocks.length ? `No delivery can be created until the block is cleared.` : f.conf ? `No delivery has been created yet.` : '';
+  else { const d = f.dlv[0]; s += `Delivery ${d.VBELN} was created on ${dmy(d.ERDAT)}; goods issue ${d.WBSTK === 'C' ? `posted on ${dmy(d.WADAT_IST)}` : d.PGI_ERR ? `FAILED (${d.PGI_ERR.split('—')[0].trim()})` : 'is still pending'}. `;
+    if (f.inv.length) { const i = f.inv[0]; s += `Invoice ${i.VBELN} (${inr(i.NETWR)} + tax) dated ${dmy(i.FKDAT)} ${i.RFBSK === 'C' ? `is posted to accounting as ${i.BELNR}` : `has NOT posted to accounting: ${i.ACC_ERR.split('—')[0]}`}. `; const nast = DB.NAST.find(x => x.OBJKY === i.VBELN); const ei = DB.EINV.find(e => e.VBELN === i.VBELN); if (nast && nast.VSTAT === '2') s += `The invoice output failed (${nast.ERRTXT.split(':')[0]}). `; if (ei && ei.IRN_STATUS === 'REJECTED') s += `The e-invoice IRN was rejected (${ei.ERRCODE}). `; }
+    else if (d.WBSTK === 'C') s += o.FAKSK ? `It cannot be billed because of the billing block.` : `It is due for billing but no invoice exists yet.`; }
+  const open = ISSUES.filter(i => isLive(i) && relatedToOrder(i, o.VBELN)); if (open.length) s += ` ${open.length} open item${open.length > 1 ? 's' : ''} in this tool: ${open.map(i => i.fix ? i.fix.label : i.title).join('; ')}.`;
+  return s;
+}
+function openOrder(vbeln) {
+  const o = DB.VBAK.find(v => v.VBELN === vbeln); if (!o) return toast('Order not found', true); DRAWER = { type: 'order', vbeln }; const f = orderFlow(o); const kv = DB.KNVV.find(k => k.KUNNR === o.KUNNR) || {};
+  const open = ISSUES.filter(i => isLive(i) && relatedToOrder(i, vbeln));
+  openDrawer(`<div class="dh"><div class="grow"><div class="row small" style="margin-bottom:4px"><span class="chip b">Order 360°</span><span class="mute">${esc(o.AUART)} · ${esc(orgName(o.VKORG))}</span></div><h3>Order ${esc(vbeln)} · ${esc(custName(o.KUNNR))}</h3><div class="mute small">PO ${esc(o.BSTNK)} · ${inr(o.NETWR)} · created ${dmy(o.ERDAT)} · requested ${dmy(o.VDATU)}</div></div><button class="btn s" onclick="closeDrawer()">${ICONS.x}</button></div>
+  <div class="db"><div class="flow">${f.st.map(s => `<div class="st ${s.c}"><div class="l">${s.l}</div><div class="v">${esc(s.v)}</div><div class="m">${esc(s.m)}</div></div>`).join('')}</div>
+  <div class="note">${esc(orderNarrative(o))}</div>
+  <dl class="kv" style="margin:12px 0"><dt>Customer</dt><dd>${esc(custName(o.KUNNR))} (${o.KUNNR}) · ${esc((DB.KNA1.find(c => c.KUNNR === o.KUNNR) || {}).ORT01)}</dd><dt>Payment terms</dt><dd>${esc(kv.ZTERM || '—')} · Incoterms ${esc(kv.INCO1 || '—')}</dd><dt>Status</dt><dd>${f.blocks.length ? f.blocks.map(b => `<span class="chip r">${esc(b)}</span>`).join(' ') : '<span class="chip g">no blocks</span>'} ${o.CMGST === 'D' ? '<span class="chip g">credit released</span>' : ''}</dd></dl>
+  <table class="t"><thead><tr><th>Item</th><th>Material</th><th class="r">Ordered</th><th class="r">Confirmed</th><th class="r">Delivered</th><th class="r">Billed</th><th class="r">Net</th></tr></thead><tbody>${f.items.map(it => { const e = f.eps.filter(x => x.POSNR === it.POSNR); const d = sumBy(DB.LIPS.filter(l => l.VGBEL === vbeln && l.VGPOS === it.POSNR && (DB.LIKP.find(h => h.VBELN === l.VBELN) || {}).WBSTK === 'C'), l => l.LFIMG); const b = sumBy(DB.VBRP.filter(x => x.AUBEL === vbeln && x.AUPOS === it.POSNR), x => x.FKIMG); return `<tr><td class="mono">${it.POSNR}</td><td>${esc(it.MATNR)}<div class="k2">${esc(matName(it.MATNR))} · plant ${it.WERKS}</div></td><td class="r">${n(it.KWMENG)}</td><td class="r ${sumBy(e, x => x.BMENG) < it.KWMENG ? 'amber b' : ''}">${n(sumBy(e, x => x.BMENG))}</td><td class="r">${n(d)}</td><td class="r">${n(b)}</td><td class="r">${it.NETPR ? inrFull(it.NETWR) : '<span class="red b">no price</span>'}</td></tr>`; }).join('')}</tbody></table>
+  ${open.length ? `<h4 style="margin:16px 0 6px;font-size:13px">Open items for this order</h4><ul class="list" style="border:1px solid var(--line);border-radius:8px">${open.map(i => `<li style="cursor:pointer" onclick="openIssue('${i.key}')"><span class="n ${i.severity === 'r' ? '' : 'a'}">!</span><span class="grow"><div class="t">${esc(i.title)}</div><div class="d">${i.fix ? esc(i.fix.label) : 'needs consultant'} · ${statusChip(i)}</div></span></li>`).join('')}</ul>` : '<div class="note g" style="margin-top:12px">No open issues on this order.</div>'}
+  </div>`, `<button class="btn" onclick="openChat('Where is order ${vbeln}?')">${ICONS.spark} Ask the copilot about this order</button>`);
+}
+function openCustomer(kunnr) { const k = DB.KNA1.find(c => c.KUNNR === kunnr); const orders = DB.VBAK.filter(o => o.KUNNR === kunnr).sort((a, b) => b.ERDAT.localeCompare(a.ERDAT)); const c = DB.KNKK.find(x => x.KUNNR === kunnr); const open = ISSUES.filter(i => isLive(i) && i.kunnr === kunnr);
+  openDrawer(`<div class="dh"><div class="grow"><div class="row small" style="margin-bottom:4px"><span class="chip b">Customer</span></div><h3>${esc(k.NAME1)} · ${kunnr}</h3><div class="mute small">${esc(k.ORT01)} · ${orders.length} orders · ${open.length} open issues</div></div><button class="btn s" onclick="closeDrawer()">${ICONS.x}</button></div><div class="db">
+  ${c ? `<dl class="kv"><dt>Credit limit</dt><dd>${inrFull(c.KLIMK)}</dd><dt>Exposure</dt><dd class="${c.SKFOR > c.KLIMK ? 'red' : ''}">${inrFull(c.SKFOR)} (${(c.SKFOR / c.KLIMK * 100).toFixed(0)}%)</dd><dt>Overdue</dt><dd class="${c.OVERDUE ? 'red' : ''}">${inrFull(c.OVERDUE)} · ${c.DPD} days</dd><dt>Payment history</dt><dd>${esc(c.PAYHIST)}</dd></dl>` : ''}
+  <table class="t" style="margin-top:12px"><thead><tr><th>Order</th><th>PO</th><th>Created</th><th class="r">Value</th><th>Stage</th></tr></thead><tbody>${orders.map(o => { const f = orderFlow(o); const last = [...f.st].reverse().find(s => s.c === 'ok'); const bad = f.st.find(s => s.c === 'bad'); return `<tr class="click" onclick="openOrder('${o.VBELN}')"><td class="k">${o.VBELN}</td><td>${esc(o.BSTNK)}</td><td>${dmy(o.ERDAT)}</td><td class="r">${inr(o.NETWR)}</td><td>${bad ? `<span class="chip r">${esc(bad.l)}: ${esc(bad.m || bad.v)}</span>` : `<span class="chip g">${esc(last ? last.l : 'Order')}</span>`}</td></tr>`; }).join('')}</tbody></table></div>`);
+}
+
+/* ---------- copilot ---------- */
+let CHAT = [];
+function openChat(q) { DRAWER = { type: 'chat' }; if (!CHAT.length) CHAT.push({ a: true, t: `Hi ${me().name.split(' ')[0]}. Ask me about any order, delivery, invoice or customer, or what is waiting for you. I answer from the SAP tables the tool just read${LLM.endpoint ? ' and the connected language model' : ''}.` }); renderChat(); if (q) chatSend(q); }
+function renderChat() { openDrawer(`<div class="dh"><div class="grow"><h3 class="row">${ICONS.spark} SD copilot</h3><div class="mute small">grounded on your scoped SAP data · ${LLM.endpoint ? 'LLM connected' : 'rule-based (connect an LLM endpoint in Data & connections)'}</div></div><button class="btn s" onclick="closeDrawer()">${ICONS.x}</button></div><div class="db"><div class="chat" id="chat">${CHAT.map(m => `<div class="msg ${m.a ? 'a' : 'u'}">${esc(m.t)}</div>`).join('')}</div><div class="sugg" style="margin-top:12px">${['Where is order 50001291?', 'Why is 50001286 blocked?', 'What is delivered but not billed?', 'Which IDocs failed?', 'Who is free to take a task?', 'What needs my approval?'].map(s => `<button onclick="chatSend('${s.replace(/'/g, "\\'")}')">${s}</button>`).join('')}</div></div>`, `<input id="chatIn" class="grow" placeholder="Ask about an order, customer, invoice…" onkeydown="if(event.key==='Enter')chatSend(this.value)"><button class="btn p" onclick="chatSend(document.getElementById('chatIn').value)">Send</button>`); const c = $('#chat'); if (c) c.scrollTop = 1e6; const inp = $('#chatIn'); if (inp) inp.focus(); }
+async function chatSend(q) { q = (q || '').trim(); if (!q) return; CHAT.push({ a: false, t: q }); renderChat(); let a; try { a = LLM.endpoint ? (await (await fetch(LLM.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, context: copilotContext() }) })).json()).answer : copilotAnswer(q); } catch (e) { a = 'LLM endpoint failed (' + e.message + '). Falling back:\n\n' + copilotAnswer(q); } CHAT.push({ a: true, t: a }); audit('Copilot: ' + q); saveState(); renderChat(); }
+function copilotContext() { return { user: me().name, role: role().title, openIssues: live().map(i => ({ key: i.key, title: i.title, detail: i.detail, status: i.status })), orders: DB.VBAK.map(o => ({ ...o, narrative: orderNarrative(o) })) }; }
+function copilotAnswer(q) {
+  const t = q.toLowerCase(); const num = q.match(/\b(5000\d{4}|8000\d{4}|9000\d{4})\b/); const L = live();
+  if (num) { let o; if (num[1].startsWith('5000')) o = DB.VBAK.find(v => v.VBELN === num[1]); else if (num[1].startsWith('8000')) { const l = DB.LIPS.find(x => x.VBELN === num[1]); o = l && DB.VBAK.find(v => v.VBELN === l.VGBEL); } else { const b = DB.VBRP.find(x => x.VBELN === num[1]); o = b && DB.VBAK.find(v => v.VBELN === b.AUBEL); }
+    if (!o) return `I cannot find ${num[1]} in the sales organisations you are authorised for.`; const open = L.filter(i => relatedToOrder(i, o.VBELN)); return orderNarrative(o) + (open.length ? `\n\nNext step: ${open[0].fix ? open[0].fix.label + (needsApproval(open[0]) ? ` (needs ${APPROVAL_LABEL[open[0].approval]})` : canExecute(open[0]) ? ' — you can do it from the issue' : '') : 'assign to ' + suggestConsultant(open[0].skill).name}.` : '\n\nNothing is waiting on this order.'); }
+  const cust = DB.KNA1.find(k => t.includes(k.NAME1.split(' ')[0].toLowerCase())); if (cust) { const os = DB.VBAK.filter(o => o.KUNNR === cust.KUNNR); const open = L.filter(i => i.kunnr === cust.KUNNR); const c = DB.KNKK.find(x => x.KUNNR === cust.KUNNR); return `${cust.NAME1}: ${os.length} orders worth ${inr(sumBy(os, o => o.NETWR))}; credit exposure ${inr(c.SKFOR)} of ${inr(c.KLIMK)}${c.OVERDUE ? `, ${inr(c.OVERDUE)} overdue (${c.DPD} days)` : ', nothing overdue'}.\n\n${open.length ? `Open items (${open.length}):\n` + open.map(i => `• ${i.title}`).join('\n') : 'No open issues.'}`; }
+  if (/block/.test(t)) { const b = L.filter(i => ['SD-01', 'SD-50'].includes(i.catalogId)); return b.length ? `${b.length} orders are blocked:\n` + b.map(i => `• ${i.title} — ${i.explain.split('.')[0]}.`).join('\n') : 'No orders are blocked right now.'; }
+  if (/bill|invoice backlog|not billed|unbilled/.test(t)) { const b = L.filter(i => i.module === 'billing'); return b.length ? `${inr(sumBy(b, i => i.value))} is delivered but not billed across ${b.length} deliveries. ${b.filter(i => !i.approval).length} can be billed now with one click; ${b.filter(i => i.approval).length} need a billing block removed first (SD Lead).\n` + b.map(i => `• ${i.ref} ${custName(i.kunnr)} ${inr(i.value)} — ${i.approval ? 'blocked' : 'clean'}`).join('\n') : 'Everything delivered has been billed.'; }
+  if (/credit/.test(t)) { const b = L.filter(i => i.module === 'credit'); return b.length ? b.map(i => `• ${i.title}\n  ${i.explain}`).join('\n\n') : 'No credit blocks.'; }
+  if (/idoc|output|e-?invoice|irn|edi/.test(t)) { const b = L.filter(i => i.module === 'output'); return b.length ? b.map(i => `• ${i.title} — ${i.detail}`).join('\n') : 'All outputs and IDocs are fine.'; }
+  if (/approv/.test(t)) { const p = ISSUES.filter(i => i.status === 'pending' && inOrg(i)); const mine = p.filter(canApprove); return `${p.length} items are pending approval, ${mine.length} are for you.` + (mine.length ? '\n' + mine.map(i => `• ${i.fix.label} — ${i.ref} ${custName(i.kunnr)} ${inr(i.value)}, proposed by ${userName(i.proposedBy)}`).join('\n') : ''); }
+  if (/free|load|consultant|who can/.test(t)) { const l = consultantLoad(); return CONSULTANTS.sort((a, b) => l[a.id] - l[b.id]).map(c => `• ${c.name} — ${l[c.id]} / ${c.capacity} open tasks (${c.skills.join(', ')})`).join('\n') + `\n\n${CONSULTANTS[0].name} has the most room.`; }
+  if (/\bpo\b|inbox|purchase order/.test(t)) { const b = L.filter(i => i.module === 'po'); return b.length ? b.map(i => `• ${i.title}`).join('\n') : 'The PO inbox is empty.'; }
+  if (/pric/.test(t)) { const b = L.filter(i => i.module === 'pricing'); return b.length ? b.map(i => `• ${i.title}\n  ${i.explain}`).join('\n\n') : 'No pricing issues.'; }
+  if (/account|post|fi\b/.test(t)) { const b = L.filter(i => i.module === 'accounting'); return b.length ? b.map(i => `• ${i.title}\n  ${i.explain}`).join('\n\n') : 'All invoices are posted.'; }
+  if (/wait|open|issue|today|summary|what/.test(t)) return `${L.length} open issues: ` + Object.keys(MODULES).filter(m => live(m).length).map(m => `${live(m).length} ${MODULES[m].label.toLowerCase()}`).join(', ') + `.\n\nMost urgent:\n` + [...L].filter(i => i.severity === 'r').slice(0, 5).map(i => `• ${i.title}`).join('\n');
+  return `I can answer about a specific document (give me the order, delivery or invoice number), a customer by name, or a topic: blocked orders, billing backlog, credit, outputs/IDocs, PO inbox, pricing, accounting, approvals, consultant load.`;
+}
+
+/* ---------- modal helpers ---------- */
+function modal(title, body, footer) { $('#modal').innerHTML = `<div class="box"><div class="mh">${title}</div><div class="mb">${body}</div><div class="mf"><button class="btn" onclick="closeModal()">Cancel</button>${footer}</div></div>`; $('#modal').classList.add('on'); }
+function closeModal() { $('#modal').classList.remove('on'); }
+function askNote(title, label, cb, required = true) { modal(title, `<label class="small"><div class="mute">${esc(label)}</div><textarea id="noteIn" rows="3" style="width:100%"></textarea></label>`, `<button class="btn p" onclick="const v=document.getElementById('noteIn').value.trim();if(${required}&&!v){toast('A reason is required',true);return}closeModal();(${cb.toString()})(v)">Confirm</button>`); setTimeout(() => $('#noteIn').focus(), 50); }
+
+/* ---------- boot ---------- */
+(async function boot() {
+  loadDB(); loadState(); document.documentElement.setAttribute('data-theme', S.theme);
+  if (S.user) { S.user = USERS.find(u => u.id === S.user.id) || null; }
+  if (S.user) { await scan(); }
+  refresh();
+})();
+
+</script>
+</body>
+</html>
